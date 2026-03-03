@@ -1,0 +1,9 @@
+node_modules/
+out/
+dist/
+*.js.map
+.env
+.forge/
+
+static/standup-ui/node_modules/
+static/standup-ui/build/

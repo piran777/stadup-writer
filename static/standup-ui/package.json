@@ -1,0 +1,37 @@
+{
+  "name": "standup-ui",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@atlaskit/button": "^18.0.0",
+    "@atlaskit/css-reset": "^6.9.0",
+    "@atlaskit/form": "^10.4.0",
+    "@atlaskit/inline-message": "^12.2.0",
+    "@atlaskit/page-header": "^10.5.0",
+    "@atlaskit/section-message": "^6.5.0",
+    "@atlaskit/select": "^17.11.0",
+    "@atlaskit/spinner": "^16.2.0",
+    "@atlaskit/tabs": "^16.3.0",
+    "@atlaskit/textfield": "^6.4.0",
+    "@atlaskit/toggle": "^13.2.0",
+    "@atlaskit/tokens": "^1.57.0",
+    "@forge/bridge": "^3.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "typescript": "^5.4.0"
+  },
+  "browserslist": {
+    "production": [">0.2%", "not dead", "not op_mini all"],
+    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
+  }
+}
