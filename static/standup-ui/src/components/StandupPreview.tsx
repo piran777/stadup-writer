@@ -3,6 +3,7 @@ import Button from "@atlaskit/button/standard-button";
 import Spinner from "@atlaskit/spinner";
 import SectionMessage from "@atlaskit/section-message";
 import { invoke } from "@forge/bridge";
+import CopyButton from "./CopyButton";
 
 function StandupPreview() {
   const [standup, setStandup] = useState<string | null>(null);
@@ -43,12 +44,6 @@ function StandupPreview() {
     setSending(false);
   };
 
-  const handleCopy = () => {
-    if (standup) {
-      navigator.clipboard.writeText(standup);
-    }
-  };
-
   return (
     <div style={{ padding: "16px 0" }}>
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -61,9 +56,7 @@ function StandupPreview() {
         </Button>
         {standup && (
           <>
-            <Button appearance="default" onClick={handleCopy}>
-              Copy
-            </Button>
+            <CopyButton text={standup} />
             <Button
               appearance="warning"
               onClick={handleSendToSlack}

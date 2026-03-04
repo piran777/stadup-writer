@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import Button from "@atlaskit/button/standard-button";
-import Textfield from "@atlaskit/textfield";
 import Toggle from "@atlaskit/toggle";
 import SectionMessage from "@atlaskit/section-message";
+import SlackConfig from "./SlackConfig";
 
 type UserConfig = {
   enabled: boolean;
@@ -92,15 +92,9 @@ function SettingsForm({ config, onSave }: Props) {
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <label style={{ fontWeight: 500, display: "block", marginBottom: 4 }}>
-          Slack Webhook URL
-        </label>
-        <Textfield
-          value={form.slackWebhookUrl}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            handleChange("slackWebhookUrl", e.target.value)
-          }
-          placeholder="https://hooks.slack.com/services/..."
+        <SlackConfig
+          webhookUrl={form.slackWebhookUrl}
+          onChange={(url) => handleChange("slackWebhookUrl", url)}
         />
       </div>
 

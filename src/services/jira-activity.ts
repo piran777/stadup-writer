@@ -1,5 +1,6 @@
 import api, { route } from "@forge/api";
 import { UserActivity } from "../types";
+import { logger } from "../utils/logger";
 
 const MAX_ISSUES = 50;
 const MAX_CHANGELOG_ISSUES = 20;
@@ -8,8 +9,26 @@ export async function fetchUserActivity(
   accountId: string,
   projectKeys?: string[] | "all"
 ): Promise<UserActivity> {
-  const issues = await searchRecentIssues(accountId, projectKeys);
-  return buildActivityFromIssues(issues, accountId);
+  try {
+    const issues = await searchRecentIssues(accountId, projectKeys);
+
+    if (issues.length === 0) {
+      return emptyActivity();
+    }
+
+    return buildActivityFromIssues(issues, accountId);
+  } catch (error: any) {
+    logger.error("Failed to fetch user activity", {
+      accountId,
+      phase: "jira",
+      error: error.message,
+    });
+    return emptyActivity();
+  }
+}
+
+function emptyActivity(): UserActivity {
+  return { completed: [], inProgress: [], commented: [], blocked: [] };
 }
 
 async function searchRecentIssues(
@@ -30,8 +49,9 @@ async function searchRecentIssues(
     );
 
   if (!response.ok) {
+    const body = await response.text().catch(() => "");
     throw new Error(
-      `Jira search failed: ${response.status} ${response.statusText}`
+      `Jira search failed: ${response.status} ${response.statusText} - ${body}`
     );
   }
 
@@ -40,23 +60,42 @@ async function searchRecentIssues(
 }
 
 async function fetchIssueChangelog(issueKey: string): Promise<any[]> {
-  const response = await api
-    .asApp()
-    .requestJira(route`/rest/api/3/issue/${issueKey}?expand=changelog`);
+  try {
+    const response = await api
+      .asApp()
+      .requestJira(route`/rest/api/3/issue/${issueKey}?expand=changelog`);
 
-  if (!response.ok) {
+    if (!response.ok) {
+      logger.warn("Changelog fetch failed for issue", {
+        phase: "jira",
+        issueKey,
+        status: response.status,
+      });
+      return [];
+    }
+
+    const data = await response.json();
+    return data.changelog?.histories || [];
+  } catch (error: any) {
+    logger.warn("Changelog fetch error", {
+      phase: "jira",
+      issueKey,
+      error: error.message,
+    });
     return [];
   }
-
-  const data = await response.json();
-  return data.changelog?.histories || [];
 }
 
 function isWithin24Hours(dateStr: string): boolean {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  return diff <= 24 * 60 * 60 * 1000;
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return false;
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    return diff >= 0 && diff <= 24 * 60 * 60 * 1000;
+  } catch {
+    return false;
+  }
 }
 
 async function buildActivityFromIssues(
@@ -74,8 +113,8 @@ async function buildActivityFromIssues(
 
   for (const issue of issuesToExpand) {
     const key = issue.key;
-    const summary = issue.fields.summary;
-    const currentStatus = issue.fields.status?.name?.toLowerCase() || "";
+    const summary = issue.fields?.summary || key;
+    const currentStatus = issue.fields?.status?.name?.toLowerCase() || "";
 
     const histories = await fetchIssueChangelog(key);
 
@@ -85,8 +124,10 @@ async function buildActivityFromIssues(
           h.author?.accountId === accountId && isWithin24Hours(h.created)
       )
       .flatMap((h: any) =>
-        h.items.filter((item: any) => item.field === "status")
+        (h.items || []).filter((item: any) => item.field === "status")
       );
+
+    let hadCompletionTransition = false;
 
     for (const transition of statusTransitions) {
       const to = transition.toString?.toLowerCase() || "";
@@ -97,19 +138,26 @@ async function buildActivityFromIssues(
           from: transition.fromString || "Unknown",
           to: transition.toString || "Done",
         });
+        hadCompletionTransition = true;
       }
     }
 
     if (
+      !hadCompletionTransition &&
       statusTransitions.length === 0 &&
       (currentStatus === "in progress" || currentStatus === "in review")
     ) {
       activity.inProgress.push({ key, summary });
     }
 
-    const comments = issue.fields.comment?.comments || [];
+    if (currentStatus === "blocked" || currentStatus === "impediment") {
+      activity.blocked.push({ key, summary });
+    }
+
+    const comments = issue.fields?.comment?.comments || [];
     const recentUserComments = comments.filter(
-      (c: any) => c.author?.accountId === accountId && isWithin24Hours(c.created)
+      (c: any) =>
+        c.author?.accountId === accountId && isWithin24Hours(c.created)
     );
 
     for (const comment of recentUserComments) {
@@ -126,14 +174,17 @@ async function buildActivityFromIssues(
   }
 
   for (const issue of issues.slice(MAX_CHANGELOG_ISSUES)) {
-    const currentStatus = issue.fields.status?.name?.toLowerCase() || "";
-    if (
-      currentStatus === "in progress" ||
-      currentStatus === "in review"
-    ) {
+    const currentStatus = issue.fields?.status?.name?.toLowerCase() || "";
+    if (currentStatus === "in progress" || currentStatus === "in review") {
       activity.inProgress.push({
         key: issue.key,
-        summary: issue.fields.summary,
+        summary: issue.fields?.summary || issue.key,
+      });
+    }
+    if (currentStatus === "blocked" || currentStatus === "impediment") {
+      activity.blocked.push({
+        key: issue.key,
+        summary: issue.fields?.summary || issue.key,
       });
     }
   }
