@@ -68,7 +68,6 @@ function SlackConfig({ webhookUrl, onChange }: Props) {
           appearance="subtle"
           onClick={handleTest}
           isDisabled={!isValidUrl || testing}
-          isLoading={testing}
         >
           Test
         </Button>
@@ -83,7 +82,7 @@ function SlackConfig({ webhookUrl, onChange }: Props) {
       {testResult && (
         <div style={{ marginTop: 8 }}>
           <SectionMessage
-            appearance={testResult.ok ? "confirmation" : "error"}
+            appearance={testResult.ok ? "success" : "error"}
           >
             <p>
               {testResult.ok

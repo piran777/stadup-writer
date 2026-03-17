@@ -106,7 +106,6 @@ function SetupWizard({ onComplete, onSave }: Props) {
               appearance="subtle"
               onClick={handleTestWebhook}
               isDisabled={!webhookUrl || testing}
-              isLoading={testing}
             >
               Test Webhook
             </Button>
@@ -121,7 +120,7 @@ function SetupWizard({ onComplete, onSave }: Props) {
           {testResult && (
             <div style={{ marginTop: 12 }}>
               <SectionMessage
-                appearance={testResult.ok ? "confirmation" : "error"}
+                appearance={testResult.ok ? "success" : "error"}
               >
                 <p>
                   {testResult.ok

@@ -1,4 +1,4 @@
-import { storage } from "@forge/api";
+import kvs from "@forge/kvs";
 import { UserConfig } from "../types";
 import { testSlackWebhook } from "../services/slack";
 import { validateConfig, isValidWebhookUrl } from "../utils/validation";
@@ -18,7 +18,7 @@ const DEFAULT_CONFIG: UserConfig = {
 export async function handleGetSettings(req: any) {
   const accountId: string = req.context.accountId;
   try {
-    const config = await storage.get(`config:${accountId}`);
+    const config = await kvs.get(`config:${accountId}`);
     return config || DEFAULT_CONFIG;
   } catch (error: any) {
     logger.error("Failed to load settings", { accountId, error: error.message });
@@ -37,14 +37,14 @@ export async function handleSaveSettings(req: any) {
 
   try {
     const existing =
-      ((await storage.get(`config:${accountId}`)) as UserConfig) || DEFAULT_CONFIG;
+      ((await kvs.get(`config:${accountId}`)) as UserConfig) || DEFAULT_CONFIG;
 
     const merged: UserConfig = { ...existing, ...updates };
 
-    await storage.set(`config:${accountId}`, merged);
+    await kvs.set(`config:${accountId}`, merged);
 
     if (updates.slackWebhookUrl && updates.slackWebhookUrl !== existing.slackWebhookUrl) {
-      await storage.setSecret(`webhook:${accountId}`, updates.slackWebhookUrl);
+      await kvs.setSecret(`webhook:${accountId}`, updates.slackWebhookUrl);
     }
 
     logger.info("Settings saved", { accountId });

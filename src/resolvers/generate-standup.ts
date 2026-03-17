@@ -1,4 +1,4 @@
-import { storage } from "@forge/api";
+import kvs from "@forge/kvs";
 import { fetchUserActivity } from "../services/jira-activity";
 import { generateStandup } from "../services/openai";
 import { postToSlack } from "../services/slack";
@@ -12,7 +12,7 @@ export async function handleGenerateStandup(req: any) {
   const sendToSlack: boolean = req.payload?.sendToSlack ?? false;
 
   try {
-    const config = (await storage.get(`config:${accountId}`)) as
+    const config = (await kvs.get(`config:${accountId}`)) as
       | UserConfig
       | undefined;
 
@@ -46,7 +46,7 @@ export async function handleGenerateStandup(req: any) {
     };
 
     const dateKey = new Date().toISOString().split("T")[0];
-    await storage.set(`history:${accountId}:${dateKey}`, record);
+    await kvs.set(`history:${accountId}:${dateKey}`, record);
 
     logger.standupGenerated(accountId, record.postedToSlack);
 

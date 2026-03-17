@@ -19,7 +19,7 @@ modules:
 
 resources:
   - key: main
-    path: static/standup-ui
+    path: static/standup-ui/build
 
 permissions:
   scopes:
@@ -28,11 +28,16 @@ permissions:
     - storage:app
   external:
     fetch:
+      client:
+        - address: api.openai.com
+        - address: hooks.slack.com
       backend:
-        - api.openai.com
-        - hooks.slack.com
+        - address: api.openai.com
+        - address: hooks.slack.com
 
 app:
-  id: ari:cloud:ecosystem::app/YOUR-APP-ID-HERE
+  id: ari:cloud:ecosystem::app/ddd7df39-862c-46ee-9836-1d72dc6a9e5a
+  runtime:
+    name: nodejs22.x
   licensing:
     enabled: true

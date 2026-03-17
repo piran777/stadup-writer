@@ -60,7 +60,7 @@ function StandupPreview() {
             <Button
               appearance="warning"
               onClick={handleSendToSlack}
-              isLoading={sending}
+              isDisabled={sending}
             >
               Send to Slack
             </Button>
@@ -95,7 +95,7 @@ function StandupPreview() {
       {slackResult && (
         <div style={{ marginTop: 12 }}>
           <SectionMessage
-            appearance={slackResult.ok ? "confirmation" : "error"}
+            appearance={slackResult.ok ? "success" : "error"}
           >
             <p>
               {slackResult.ok

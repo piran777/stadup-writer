@@ -1,4 +1,4 @@
-import { storage, startsWith } from "@forge/api";
+import kvs, { WhereConditions } from "@forge/kvs";
 import { fetchUserActivity } from "../services/jira-activity";
 import { generateStandup } from "../services/openai";
 import { postToSlack } from "../services/slack";
@@ -81,7 +81,7 @@ async function processUser(
     activity,
   };
 
-  await storage.set(`history:${accountId}:${dateKey}`, record);
+  await kvs.set(`history:${accountId}:${dateKey}`, record);
 
   if (slackResult.ok) {
     logger.standupGenerated(accountId, true);
@@ -104,7 +104,7 @@ async function loadAllUserConfigs(): Promise<
   let cursor: string | undefined;
 
   do {
-    let queryBuilder = storage.query().where("key", startsWith("config:")).limit(20);
+    let queryBuilder = kvs.query().where("key", WhereConditions.beginsWith("config:")).limit(20);
     if (cursor) {
       queryBuilder = queryBuilder.cursor(cursor);
     }

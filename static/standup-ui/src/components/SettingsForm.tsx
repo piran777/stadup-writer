@@ -184,12 +184,12 @@ function SettingsForm({ config, onSave }: Props) {
         <Button
           appearance="primary"
           onClick={handleSubmit}
-          isLoading={saving}
+          isDisabled={saving}
         >
           Save Settings
         </Button>
         {saved && (
-          <SectionMessage appearance="confirmation">
+          <SectionMessage appearance="success">
             <p>Settings saved.</p>
           </SectionMessage>
         )}
