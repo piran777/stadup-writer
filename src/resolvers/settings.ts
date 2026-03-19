@@ -47,6 +47,10 @@ export async function handleSaveSettings(req: any) {
       await kvs.setSecret(`webhook:${accountId}`, updates.slackWebhookUrl);
     }
 
+    if (updates.githubToken && updates.githubToken !== existing.githubToken) {
+      await kvs.setSecret(`github-token:${accountId}`, updates.githubToken);
+    }
+
     logger.info("Settings saved", { accountId });
     return { success: true, config: merged };
   } catch (error: any) {

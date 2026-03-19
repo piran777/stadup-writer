@@ -35,18 +35,42 @@ async function searchRecentIssues(
   accountId: string,
   projectKeys?: string[] | "all"
 ): Promise<any[]> {
-  let jql = `assignee = "${accountId}" AND updated >= -1d ORDER BY updated DESC`;
+  let jql = `assignee = currentUser() AND updated >= -1d ORDER BY updated DESC`;
 
   if (projectKeys && projectKeys !== "all" && projectKeys.length > 0) {
     const projectFilter = projectKeys.map((k) => `"${k}"`).join(", ");
-    jql = `assignee = "${accountId}" AND project IN (${projectFilter}) AND updated >= -1d ORDER BY updated DESC`;
+    jql = `assignee = currentUser() AND project IN (${projectFilter}) AND updated >= -1d ORDER BY updated DESC`;
   }
 
-  const response = await api
-    .asApp()
-    .requestJira(
-      route`/rest/api/3/search?jql=${jql}&maxResults=${MAX_ISSUES}&fields=summary,status,project,comment`
-    );
+  logger.info("Jira search executing", { phase: "jira", jql, accountId });
+
+  let response = await api
+    .asUser()
+    .requestJira(route`/rest/api/3/search/jql`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jql,
+        maxResults: MAX_ISSUES,
+        fields: ["summary", "status", "project", "comment"],
+      }),
+    });
+
+  if (!response.ok) {
+    logger.warn("asUser search failed, trying asApp", { phase: "jira", status: response.status });
+    const appJql = `assignee = "${accountId}" AND updated >= -1d ORDER BY updated DESC`;
+    response = await api
+      .asApp()
+      .requestJira(route`/rest/api/3/search/jql`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jql: appJql,
+          maxResults: MAX_ISSUES,
+          fields: ["summary", "status", "project", "comment"],
+        }),
+      });
+  }
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
@@ -56,6 +80,11 @@ async function searchRecentIssues(
   }
 
   const data = await response.json();
+  logger.info("Jira search results", {
+    phase: "jira",
+    issueCount: data.issues?.length ?? 0,
+    total: data.total ?? 0,
+  });
   return data.issues || [];
 }
 
@@ -98,6 +127,17 @@ function isWithin24Hours(dateStr: string): boolean {
   }
 }
 
+const DONE_STATUSES = new Set(["done", "closed", "resolved", "complete", "completed"]);
+const BLOCKED_STATUSES = new Set(["blocked", "impediment", "on hold"]);
+
+function isDoneStatus(status: string): boolean {
+  return DONE_STATUSES.has(status);
+}
+
+function isBlockedStatus(status: string): boolean {
+  return BLOCKED_STATUSES.has(status);
+}
+
 async function buildActivityFromIssues(
   issues: any[],
   accountId: string
@@ -116,7 +156,22 @@ async function buildActivityFromIssues(
     const summary = issue.fields?.summary || key;
     const currentStatus = issue.fields?.status?.name?.toLowerCase() || "";
 
+    logger.info("Processing issue", {
+      phase: "jira",
+      key,
+      summary,
+      currentStatus,
+      rawStatusName: issue.fields?.status?.name,
+      statusCategory: issue.fields?.status?.statusCategory?.name,
+    });
+
     const histories = await fetchIssueChangelog(key);
+
+    logger.info("Changelog fetched", {
+      phase: "jira",
+      key,
+      historyCount: histories.length,
+    });
 
     const statusTransitions = histories
       .filter(
@@ -131,7 +186,7 @@ async function buildActivityFromIssues(
 
     for (const transition of statusTransitions) {
       const to = transition.toString?.toLowerCase() || "";
-      if (to === "done" || to === "closed" || to === "resolved") {
+      if (isDoneStatus(to)) {
         activity.completed.push({
           key,
           summary,
@@ -142,16 +197,10 @@ async function buildActivityFromIssues(
       }
     }
 
-    if (
-      !hadCompletionTransition &&
-      statusTransitions.length === 0 &&
-      (currentStatus === "in progress" || currentStatus === "in review")
-    ) {
-      activity.inProgress.push({ key, summary });
-    }
-
-    if (currentStatus === "blocked" || currentStatus === "impediment") {
+    if (!hadCompletionTransition && isBlockedStatus(currentStatus)) {
       activity.blocked.push({ key, summary });
+    } else if (!hadCompletionTransition && !isDoneStatus(currentStatus)) {
+      activity.inProgress.push({ key, summary });
     }
 
     const comments = issue.fields?.comment?.comments || [];
@@ -171,23 +220,39 @@ async function buildActivityFromIssues(
         commentSnippet: body.slice(0, 120),
       });
     }
+
+    logger.info("Issue categorized", {
+      phase: "jira",
+      key,
+      completedCount: activity.completed.length,
+      inProgressCount: activity.inProgress.length,
+      blockedCount: activity.blocked.length,
+      commentedCount: activity.commented.length,
+    });
   }
 
   for (const issue of issues.slice(MAX_CHANGELOG_ISSUES)) {
     const currentStatus = issue.fields?.status?.name?.toLowerCase() || "";
-    if (currentStatus === "in progress" || currentStatus === "in review") {
+    if (isBlockedStatus(currentStatus)) {
+      activity.blocked.push({
+        key: issue.key,
+        summary: issue.fields?.summary || issue.key,
+      });
+    } else if (!isDoneStatus(currentStatus)) {
       activity.inProgress.push({
         key: issue.key,
         summary: issue.fields?.summary || issue.key,
       });
     }
-    if (currentStatus === "blocked" || currentStatus === "impediment") {
-      activity.blocked.push({
-        key: issue.key,
-        summary: issue.fields?.summary || issue.key,
-      });
-    }
   }
+
+  logger.info("Activity built", {
+    phase: "jira",
+    completed: activity.completed.length,
+    inProgress: activity.inProgress.length,
+    blocked: activity.blocked.length,
+    commented: activity.commented.length,
+  });
 
   return activity;
 }

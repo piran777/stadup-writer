@@ -31,9 +31,11 @@ permissions:
       client:
         - address: api.openai.com
         - address: hooks.slack.com
+        - address: api.github.com
       backend:
         - address: api.openai.com
         - address: hooks.slack.com
+        - address: api.github.com
 
 app:
   id: ari:cloud:ecosystem::app/ddd7df39-862c-46ee-9836-1d72dc6a9e5a

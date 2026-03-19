@@ -1,5 +1,5 @@
 import api from "@forge/api";
-import { UserActivity } from "../types";
+import { UserActivity, GitHubActivity } from "../types";
 import { buildPrompt } from "../utils/prompt-builder";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
@@ -9,13 +9,15 @@ const RETRY_DELAY_MS = 2000;
 export async function generateStandup(
   activity: UserActivity,
   format: "bullets" | "prose" = "bullets",
-  tone: "casual" | "professional" = "professional"
+  tone: "casual" | "professional" = "professional",
+  github?: GitHubActivity
 ): Promise<string> {
-  if (isEmptyActivity(activity)) {
+  const hasGitHub = github && (github.commits.length > 0 || github.pullRequests.length > 0);
+  if (isEmptyActivity(activity) && !hasGitHub) {
     return "No Jira activity in the last 24 hours.";
   }
 
-  const prompt = buildPrompt(activity, format, tone);
+  const prompt = buildPrompt(activity, format, tone, github);
 
   try {
     return await callOpenAI(prompt);

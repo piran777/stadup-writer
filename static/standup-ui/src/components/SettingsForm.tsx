@@ -13,6 +13,8 @@ type UserConfig = {
   projects: string[] | "all";
   format: "bullets" | "prose";
   tone: "casual" | "professional";
+  githubUsername?: string;
+  githubToken?: string;
 };
 
 type Props = {
@@ -178,6 +180,55 @@ function SettingsForm({ config, onSave }: Props) {
           />
           <span>Skip weekends</span>
         </label>
+      </div>
+
+      <div
+        style={{
+          marginBottom: 24,
+          padding: 16,
+          background: "#f4f5f7",
+          borderRadius: 8,
+          border: "1px solid #dfe1e6",
+        }}
+      >
+        <h4 style={{ margin: "0 0 4px", fontWeight: 600 }}>
+          GitHub Integration
+          <span style={{ fontWeight: 400, fontSize: 12, color: "#6B778C", marginLeft: 8 }}>
+            Optional
+          </span>
+        </h4>
+        <p style={{ fontSize: 12, color: "#6B778C", margin: "0 0 12px" }}>
+          Connect GitHub to include commits and pull requests in your standup.
+          Create a token at github.com/settings/tokens with <code>repo</code> scope.
+        </p>
+
+        <label style={{ fontWeight: 500, display: "block", marginBottom: 4 }}>
+          GitHub Username
+        </label>
+        <input
+          type="text"
+          value={form.githubUsername || ""}
+          onChange={(e) => handleChange("githubUsername", e.target.value || undefined)}
+          placeholder="your-username"
+          style={{
+            ...selectStyle,
+            padding: "8px 12px",
+          }}
+        />
+
+        <label style={{ fontWeight: 500, display: "block", marginBottom: 4 }}>
+          GitHub Personal Access Token
+        </label>
+        <input
+          type="password"
+          value={form.githubToken || ""}
+          onChange={(e) => handleChange("githubToken", e.target.value || undefined)}
+          placeholder="ghp_xxxxxxxxxxxx"
+          style={{
+            ...selectStyle,
+            padding: "8px 12px",
+          }}
+        />
       </div>
 
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

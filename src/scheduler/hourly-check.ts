@@ -1,8 +1,9 @@
 import kvs, { WhereConditions } from "@forge/kvs";
 import { fetchUserActivity } from "../services/jira-activity";
+import { fetchGitHubActivity } from "../services/github-activity";
 import { generateStandup } from "../services/openai";
 import { postToSlack } from "../services/slack";
-import { UserConfig, StandupRecord } from "../types";
+import { UserConfig, StandupRecord, GitHubActivity } from "../types";
 import { isPostingTime, isWeekday } from "../utils/time";
 import { truncateSlackMessage } from "../utils/format";
 import { isValidWebhookUrl } from "../utils/validation";
@@ -61,9 +62,14 @@ async function processUser(
     return "skipped";
   }
 
-  const activity = await fetchUserActivity(accountId, config.projects);
+  const [activity, githubActivity] = await Promise.all([
+    fetchUserActivity(accountId, config.projects),
+    config.githubUsername && config.githubToken
+      ? fetchGitHubActivity(config.githubUsername, config.githubToken)
+      : Promise.resolve<GitHubActivity>({ commits: [], pullRequests: [] }),
+  ]);
 
-  const standup = await generateStandup(activity, config.format, config.tone);
+  const standup = await generateStandup(activity, config.format, config.tone, githubActivity);
 
   if (standup === "No Jira activity in the last 24 hours.") {
     logger.standupSkipped(accountId, "no activity");
