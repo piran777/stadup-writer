@@ -3,6 +3,7 @@ import Button from "@atlaskit/button/standard-button";
 import Toggle from "@atlaskit/toggle";
 import SectionMessage from "@atlaskit/section-message";
 import SlackConfig from "./SlackConfig";
+import GitHubConnect from "./GitHubConnect";
 
 type UserConfig = {
   enabled: boolean;
@@ -15,6 +16,7 @@ type UserConfig = {
   tone: "casual" | "professional";
   githubUsername?: string;
   githubToken?: string;
+  githubConnected?: boolean;
 };
 
 type Props = {
@@ -134,6 +136,9 @@ function SettingsForm({ config, onSave }: Props) {
             </option>
           ))}
         </select>
+        <p style={{ fontSize: 11, color: "#97A0AF", margin: "-12px 0 12px" }}>
+          Tip: Set this 1 hour before your desired delivery time for best results.
+        </p>
       </div>
 
       <div style={{ marginBottom: 16 }}>
@@ -182,53 +187,8 @@ function SettingsForm({ config, onSave }: Props) {
         </label>
       </div>
 
-      <div
-        style={{
-          marginBottom: 24,
-          padding: 16,
-          background: "#f4f5f7",
-          borderRadius: 8,
-          border: "1px solid #dfe1e6",
-        }}
-      >
-        <h4 style={{ margin: "0 0 4px", fontWeight: 600 }}>
-          GitHub Integration
-          <span style={{ fontWeight: 400, fontSize: 12, color: "#6B778C", marginLeft: 8 }}>
-            Optional
-          </span>
-        </h4>
-        <p style={{ fontSize: 12, color: "#6B778C", margin: "0 0 12px" }}>
-          Connect GitHub to include commits and pull requests in your standup.
-          Create a token at github.com/settings/tokens with <code>repo</code> scope.
-        </p>
-
-        <label style={{ fontWeight: 500, display: "block", marginBottom: 4 }}>
-          GitHub Username
-        </label>
-        <input
-          type="text"
-          value={form.githubUsername || ""}
-          onChange={(e) => handleChange("githubUsername", e.target.value || undefined)}
-          placeholder="your-username"
-          style={{
-            ...selectStyle,
-            padding: "8px 12px",
-          }}
-        />
-
-        <label style={{ fontWeight: 500, display: "block", marginBottom: 4 }}>
-          GitHub Personal Access Token
-        </label>
-        <input
-          type="password"
-          value={form.githubToken || ""}
-          onChange={(e) => handleChange("githubToken", e.target.value || undefined)}
-          placeholder="ghp_xxxxxxxxxxxx"
-          style={{
-            ...selectStyle,
-            padding: "8px 12px",
-          }}
-        />
+      <div style={{ marginBottom: 24 }}>
+        <GitHubConnect />
       </div>
 
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

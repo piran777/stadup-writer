@@ -11,11 +11,17 @@ modules:
       function: scheduled-handler
       interval: hour
 
+  webtrigger:
+    - key: github-oauth-callback
+      function: github-callback-handler
+
   function:
     - key: resolver
       handler: index.handler
     - key: scheduled-handler
       handler: index.scheduledHandler
+    - key: github-callback-handler
+      handler: index.githubOAuthCallback
 
 resources:
   - key: main
@@ -32,10 +38,12 @@ permissions:
         - address: api.openai.com
         - address: hooks.slack.com
         - address: api.github.com
+        - address: github.com
       backend:
         - address: api.openai.com
         - address: hooks.slack.com
         - address: api.github.com
+        - address: github.com
 
 app:
   id: ari:cloud:ecosystem::app/ddd7df39-862c-46ee-9836-1d72dc6a9e5a

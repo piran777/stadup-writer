@@ -62,6 +62,13 @@ async function processUser(
     return "skipped";
   }
 
+  const dateKey = new Date().toISOString().split("T")[0];
+  const existing = await kvs.get(`history:${accountId}:${dateKey}`) as StandupRecord | undefined;
+  if (existing?.postedToSlack) {
+    logger.standupSkipped(accountId, "already posted today");
+    return "skipped";
+  }
+
   const [activity, githubActivity] = await Promise.all([
     fetchUserActivity(accountId, config.projects),
     config.githubUsername && config.githubToken
@@ -79,7 +86,6 @@ async function processUser(
   const message = truncateSlackMessage(standup);
   const slackResult = await postToSlack(config.slackWebhookUrl, message);
 
-  const dateKey = new Date().toISOString().split("T")[0];
   const record: StandupRecord = {
     generatedAt: new Date().toISOString(),
     postedToSlack: slackResult.ok,

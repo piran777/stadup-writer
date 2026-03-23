@@ -56,6 +56,7 @@ export type UserConfig = {
   tone: "casual" | "professional";
   githubUsername?: string;
   githubToken?: string;
+  githubConnected?: boolean;
 };
 
 export type StandupRecord = {
