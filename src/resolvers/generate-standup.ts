@@ -20,7 +20,10 @@ export async function handleGenerateStandup(req: any) {
     const [activity, githubActivity] = await Promise.all([
       fetchUserActivity(accountId, config?.projects),
       config?.githubUsername && config?.githubToken
-        ? fetchGitHubActivity(config.githubUsername, config.githubToken)
+        ? fetchGitHubActivity(config.githubUsername, config.githubToken, {
+            orgs: config.githubOrgs,
+            orgOnly: config.githubOrgOnly,
+          })
         : Promise.resolve<GitHubActivity>({ commits: [], pullRequests: [] }),
     ]);
 

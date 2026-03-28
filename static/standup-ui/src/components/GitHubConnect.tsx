@@ -7,18 +7,25 @@ import { invoke, router } from "@forge/bridge";
 type GitHubStatus = {
   connected: boolean;
   username: string | null;
+  githubOrgs?: string[];
+  githubOrgOnly?: boolean;
 };
 
 type Props = {
   onConnectionChange?: () => void;
+  githubOrgs?: string[];
+  githubOrgOnly?: boolean;
+  onFilterChange?: (orgs: string[], orgOnly: boolean) => void;
 };
 
-function GitHubConnect({ onConnectionChange }: Props) {
+function GitHubConnect({ onConnectionChange, githubOrgs, githubOrgOnly, onFilterChange }: Props) {
   const [status, setStatus] = useState<GitHubStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [orgOnly, setOrgOnly] = useState(githubOrgOnly ?? false);
+  const [orgsInput, setOrgsInput] = useState((githubOrgs || []).join(", "));
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -119,6 +126,51 @@ function GitHubConnect({ onConnectionChange }: Props) {
               Connected as <strong>{status.username}</strong>
             </span>
           </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <input
+                type="checkbox"
+                checked={orgOnly}
+                onChange={(e) => {
+                  setOrgOnly(e.target.checked);
+                  onFilterChange?.(
+                    orgsInput.split(",").map((s) => s.trim()).filter(Boolean),
+                    e.target.checked
+                  );
+                }}
+              />
+              <span style={{ fontSize: 13 }}>Only include organization repos (exclude personal repos)</span>
+            </label>
+
+            <label style={{ fontWeight: 500, display: "block", marginBottom: 4, fontSize: 13 }}>
+              Filter to specific orgs
+            </label>
+            <input
+              type="text"
+              value={orgsInput}
+              onChange={(e) => {
+                setOrgsInput(e.target.value);
+                onFilterChange?.(
+                  e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                  orgOnly
+                );
+              }}
+              placeholder="e.g. hyperPad, my-company"
+              style={{
+                width: "100%",
+                padding: "6px 10px",
+                borderRadius: 3,
+                border: "1px solid #dfe1e6",
+                fontSize: 13,
+                boxSizing: "border-box",
+              }}
+            />
+            <p style={{ fontSize: 11, color: "#97A0AF", margin: "4px 0 0" }}>
+              Comma-separated. Leave empty to include all orgs. Personal repos are excluded when the toggle above is on.
+            </p>
+          </div>
+
           <Button
             appearance="subtle"
             onClick={handleDisconnect}

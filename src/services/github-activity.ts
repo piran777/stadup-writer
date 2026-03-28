@@ -27,12 +27,25 @@ function sinceDate(): string {
   return d.toISOString().split("T")[0];
 }
 
+export type GitHubFilter = {
+  orgs?: string[];
+  orgOnly?: boolean;
+};
+
 async function fetchCommits(
   username: string,
-  token: string
+  token: string,
+  filter?: GitHubFilter
 ): Promise<GitHubCommit[]> {
   const since = sinceDate();
-  const q = encodeURIComponent(`author:${username} author-date:>=${since}`);
+  let queryParts = `author:${username} author-date:>=${since}`;
+
+  if (filter?.orgs && filter.orgs.length > 0) {
+    const orgQueries = filter.orgs.map((org) => `org:${org}`).join(" ");
+    queryParts += ` ${orgQueries}`;
+  }
+
+  const q = encodeURIComponent(queryParts);
   const url = `${GITHUB_API}/search/commits?q=${q}&sort=author-date&order=desc&per_page=30`;
 
   const response = await api.fetch(url, { headers: githubHeaders(token) });
@@ -56,9 +69,10 @@ async function fetchCommits(
 
   return items.map((item: any) => {
     const message = (item.commit?.message || "").split("\n")[0].slice(0, 120);
-    const repo = item.repository?.name || item.repository?.full_name || "unknown";
+    const fullName = item.repository?.full_name || "";
+    const repo = item.repository?.name || fullName || "unknown";
     return {
-      repo,
+      repo: fullName || repo,
       message,
       sha: (item.sha || "").slice(0, 7),
       linkedTicket: extractTicketKeys(message),
@@ -68,10 +82,18 @@ async function fetchCommits(
 
 async function fetchPullRequests(
   username: string,
-  token: string
+  token: string,
+  filter?: GitHubFilter
 ): Promise<GitHubPR[]> {
   const since = sinceDate();
-  const q = encodeURIComponent(`author:${username} type:pr updated:>=${since}`);
+  let queryParts = `author:${username} type:pr updated:>=${since}`;
+
+  if (filter?.orgs && filter.orgs.length > 0) {
+    const orgQueries = filter.orgs.map((org) => `org:${org}`).join(" ");
+    queryParts += ` ${orgQueries}`;
+  }
+
+  const q = encodeURIComponent(queryParts);
   const url = `${GITHUB_API}/search/issues?q=${q}&sort=updated&order=desc&per_page=20`;
 
   const response = await api.fetch(url, { headers: githubHeaders(token) });
@@ -96,7 +118,8 @@ async function fetchPullRequests(
   return items.map((item: any) => {
     const title = (item.title || "").slice(0, 120);
     const repoUrl = item.repository_url || "";
-    const repo = repoUrl.split("/").pop() || "unknown";
+    const repoParts = repoUrl.replace("https://api.github.com/repos/", "");
+    const repo = repoParts || repoUrl.split("/").pop() || "unknown";
     let action: GitHubPR["action"] = "opened";
     if (item.pull_request?.merged_at) {
       action = "merged";
@@ -113,19 +136,52 @@ async function fetchPullRequests(
   });
 }
 
-export async function fetchGitHubActivity(
+async function fetchUserOrgs(
   username: string,
   token: string
+): Promise<string[]> {
+  try {
+    const response = await api.fetch(`${GITHUB_API}/user/orgs?per_page=100`, {
+      headers: githubHeaders(token),
+    });
+    if (!response.ok) return [];
+    const orgs: any[] = await response.json();
+    return orgs.map((o: any) => o.login);
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchGitHubActivity(
+  username: string,
+  token: string,
+  filter?: GitHubFilter
 ): Promise<GitHubActivity> {
   if (!username || !token) {
     return emptyGitHubActivity();
   }
 
   try {
-    const [commits, pullRequests] = await Promise.all([
-      fetchCommits(username, token),
-      fetchPullRequests(username, token),
+    const hasOrgFilter = filter?.orgs && filter.orgs.length > 0;
+    const searchFilter = hasOrgFilter ? filter : undefined;
+
+    let [commits, pullRequests] = await Promise.all([
+      fetchCommits(username, token, searchFilter),
+      fetchPullRequests(username, token, searchFilter),
     ]);
+
+    if (!hasOrgFilter && filter?.orgOnly) {
+      const userOrgs = await fetchUserOrgs(username, token);
+      const orgSet = new Set(userOrgs.map((o) => o.toLowerCase()));
+      commits = commits.filter((c) => {
+        const owner = c.repo.includes("/") ? c.repo.split("/")[0].toLowerCase() : "";
+        return owner !== username.toLowerCase() && (orgSet.size === 0 || orgSet.has(owner));
+      });
+      pullRequests = pullRequests.filter((pr) => {
+        const owner = pr.repo.includes("/") ? pr.repo.split("/")[0].toLowerCase() : "";
+        return owner !== username.toLowerCase() && (orgSet.size === 0 || orgSet.has(owner));
+      });
+    }
 
     logger.info("GitHub activity parsed", {
       phase: "github",

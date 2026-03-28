@@ -57,6 +57,8 @@ export type UserConfig = {
   githubUsername?: string;
   githubToken?: string;
   githubConnected?: boolean;
+  githubOrgs?: string[];
+  githubOrgOnly?: boolean;
 };
 
 export type StandupRecord = {

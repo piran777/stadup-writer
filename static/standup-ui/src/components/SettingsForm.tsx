@@ -17,6 +17,8 @@ type UserConfig = {
   githubUsername?: string;
   githubToken?: string;
   githubConnected?: boolean;
+  githubOrgs?: string[];
+  githubOrgOnly?: boolean;
 };
 
 type Props = {
@@ -188,7 +190,14 @@ function SettingsForm({ config, onSave }: Props) {
       </div>
 
       <div style={{ marginBottom: 24 }}>
-        <GitHubConnect />
+        <GitHubConnect
+          githubOrgs={form.githubOrgs}
+          githubOrgOnly={form.githubOrgOnly}
+          onFilterChange={(orgs, orgOnlyVal) => {
+            handleChange("githubOrgs", orgs.length > 0 ? orgs : undefined);
+            handleChange("githubOrgOnly", orgOnlyVal || undefined);
+          }}
+        />
       </div>
 
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
