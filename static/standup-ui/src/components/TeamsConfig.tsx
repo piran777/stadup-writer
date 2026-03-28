@@ -3,6 +3,7 @@ import Button from "@atlaskit/button/standard-button";
 import Textfield from "@atlaskit/textfield";
 import SectionMessage from "@atlaskit/section-message";
 import { invoke } from "@forge/bridge";
+import { isValidTeamsWebhookUrl } from "../utils/webhooks";
 
 type Props = {
   webhookUrl: string;
@@ -16,10 +17,7 @@ function TeamsConfig({ webhookUrl, onChange }: Props) {
     error?: string;
   } | null>(null);
 
-  const isValidUrl =
-    webhookUrl.length > 0 &&
-    webhookUrl.startsWith("https://") &&
-    webhookUrl.includes(".webhook.office.com");
+  const isValidUrl = isValidTeamsWebhookUrl(webhookUrl);
 
   const handleTest = async () => {
     if (!isValidUrl) return;
@@ -38,13 +36,14 @@ function TeamsConfig({ webhookUrl, onChange }: Props) {
   };
 
   return (
-    <div>
-      <label style={{ fontWeight: 500, display: "block", marginBottom: 4 }}>
-        Microsoft Teams Webhook URL
+    <div className="webhook-config">
+      <label className="webhook-label">
+        <span className="channel-tag teams" style={{ marginRight: 6 }}>Teams</span>
+        Webhook URL
       </label>
-      <p style={{ fontSize: 12, color: "#6b778c", margin: "0 0 8px" }}>
+      <p className="webhook-hint">
         In Teams, go to channel settings &rarr; Connectors &rarr; Incoming
-        Webhook &rarr; Configure. Or use{" "}
+        Webhook. Or use{" "}
         <a
           href="https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook"
           target="_blank"
@@ -55,8 +54,8 @@ function TeamsConfig({ webhookUrl, onChange }: Props) {
         for newer Teams.
       </p>
 
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-        <div style={{ flex: 1 }}>
+      <div className="inline-row">
+        <div className="flex-1">
           <Textfield
             value={webhookUrl}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -76,7 +75,7 @@ function TeamsConfig({ webhookUrl, onChange }: Props) {
       </div>
 
       {webhookUrl.length > 0 && !isValidUrl && (
-        <p style={{ color: "#de350b", fontSize: 12, marginTop: 4 }}>
+        <p className="webhook-error">
           URL should be a Microsoft Teams webhook (*.webhook.office.com)
         </p>
       )}
@@ -88,7 +87,7 @@ function TeamsConfig({ webhookUrl, onChange }: Props) {
           >
             <p>
               {testResult.ok
-                ? "Webhook works! Check your Teams channel for the test message."
+                ? "Webhook works! Check your Teams channel."
                 : `Failed: ${testResult.error}`}
             </p>
           </SectionMessage>

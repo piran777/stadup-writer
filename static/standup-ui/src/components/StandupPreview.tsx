@@ -1,26 +1,35 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useLayoutEffect } from "react";
 import Button from "@atlaskit/button/standard-button";
 import Spinner from "@atlaskit/spinner";
 import SectionMessage from "@atlaskit/section-message";
 import { invoke } from "@forge/bridge";
 import CopyButton from "./CopyButton";
+import { isValidSlackWebhookUrl, isValidTeamsWebhookUrl } from "../utils/webhooks";
 
-function StandupPreview() {
+type Props = {
+  config: any;
+};
+
+function StandupPreview({ config }: Props) {
   const [standup, setStandup] = useState<string | null>(null);
   const [edited, setEdited] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [slackResult, setSlackResult] = useState<{
+  const [sendResult, setSendResult] = useState<{
     ok: boolean;
     error?: string;
   } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const hasSlack = isValidSlackWebhookUrl(config?.slackWebhookUrl ?? "");
+  const hasTeams = isValidTeamsWebhookUrl(config?.teamsWebhookUrl ?? "");
+  const hasAnyChannel = hasSlack || hasTeams;
+
   const handleGenerate = async () => {
     setLoading(true);
     setStandup(null);
     setEdited(false);
-    setSlackResult(null);
+    setSendResult(null);
     try {
       const result = await invoke<{ standup: string }>("generateStandup", {
         sendToSlack: false,
@@ -32,18 +41,18 @@ function StandupPreview() {
     setLoading(false);
   };
 
-  const handleSendToSlack = async () => {
+  const handleSendNow = async () => {
     if (!standup) return;
     setSending(true);
-    setSlackResult(null);
+    setSendResult(null);
     try {
       const result = await invoke<{ ok: boolean; error?: string }>(
         "sendEditedStandup",
         { text: standup }
       );
-      setSlackResult(result);
+      setSendResult(result);
     } catch (err: any) {
-      setSlackResult({ ok: false, error: err.message });
+      setSendResult({ ok: false, error: err.message });
     }
     setSending(false);
   };
@@ -51,92 +60,138 @@ function StandupPreview() {
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setStandup(e.target.value);
     setEdited(true);
-    setSlackResult(null);
+    setSendResult(null);
   };
 
-  const autoResize = () => {
+  const fitPreviewHeight = () => {
     const el = textareaRef.current;
-    if (el) {
-      el.style.height = "auto";
-      el.style.height = el.scrollHeight + "px";
-    }
+    if (!el) return;
+    el.style.height = "auto";
+    const cap = Math.round(window.innerHeight * 0.7);
+    const minH = 300;
+    const next = Math.min(Math.max(el.scrollHeight, minH), cap);
+    el.style.height = `${next}px`;
   };
+
+  useLayoutEffect(() => {
+    if (!standup) return;
+    fitPreviewHeight();
+  }, [standup]);
+
+  if (!standup && !loading) {
+    return (
+      <div className="empty-state">
+        <div className="empty-state-icon">&#9998;</div>
+        <h3>Generate a Standup Preview</h3>
+        <p>
+          Pull your latest Jira and GitHub activity and let AI write your standup.
+          {!hasAnyChannel && " Set up Slack or Teams in Settings to enable posting."}
+        </p>
+        <Button appearance="primary" onClick={handleGenerate}>
+          Generate Preview
+        </Button>
+        {hasAnyChannel && (
+          <div className="channel-tags channel-tags--center" style={{ marginTop: 12 }}>
+            <span>Will post to:</span>
+            {hasSlack && <span className="channel-tag slack">Slack</span>}
+            {hasTeams && <span className="channel-tag teams">Teams</span>}
+            {hasSlack && !hasTeams && (
+              <span className="channel-tag channel-tag--muted" title="Add in Settings">
+                Teams not set
+              </span>
+            )}
+            {hasTeams && !hasSlack && (
+              <span className="channel-tag channel-tag--muted" title="Add in Settings">
+                Slack not set
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: "16px 0" }}>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
+      <div className="toolbar">
         <Button
           appearance="primary"
           onClick={handleGenerate}
           isDisabled={loading}
         >
-          Generate Preview
+          Regenerate
         </Button>
         {standup && (
           <>
             <CopyButton text={standup} />
-            <Button
-              appearance="warning"
-              onClick={handleSendToSlack}
-              isDisabled={sending}
-            >
-              Send to Slack
-            </Button>
+            {hasAnyChannel && (
+              <Button
+                appearance="warning"
+                onClick={handleSendNow}
+                isDisabled={sending}
+              >
+                {sending ? "Sending..." : "Send Now"}
+              </Button>
+            )}
           </>
         )}
+        <div className="toolbar-spacer" />
         {edited && (
-          <span style={{ fontSize: 12, color: "#6B778C", fontStyle: "italic" }}>
-            Edited
-          </span>
+          <span className="status-badge neutral">Edited</span>
+        )}
+        {hasAnyChannel && (
+          <div className="channel-tags">
+            {hasSlack && <span className="channel-tag slack">Slack</span>}
+            {hasTeams && <span className="channel-tag teams">Teams</span>}
+            {hasSlack && !hasTeams && (
+              <span className="channel-tag channel-tag--muted">Teams not set</span>
+            )}
+            {hasTeams && !hasSlack && (
+              <span className="channel-tag channel-tag--muted">Slack not set</span>
+            )}
+          </div>
         )}
       </div>
 
       {loading && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div className="loading-inline">
           <Spinner size="medium" />
-          <span>Generating standup from Jira activity...</span>
+          <span>Generating standup from your activity...</span>
         </div>
       )}
 
       {standup && (
-        <textarea
-          ref={textareaRef}
-          value={standup}
-          onChange={handleTextChange}
-          onInput={autoResize}
-          onFocus={autoResize}
-          style={{
-            width: "100%",
-            minHeight: 180,
-            background: "#f4f5f7",
-            borderRadius: 8,
-            padding: 16,
-            fontFamily: "monospace",
-            fontSize: 13,
-            lineHeight: 1.6,
-            border: "1px solid #dfe1e6",
-            resize: "vertical",
-            outline: "none",
-            boxSizing: "border-box",
-          }}
-        />
+        <div className="preview-message">
+          <div className="preview-message-header">
+            <span>Standup Preview</span>
+            {edited && <span style={{ fontStyle: "italic" }}>Modified</span>}
+          </div>
+          <textarea
+            ref={textareaRef}
+            value={standup}
+            onChange={handleTextChange}
+            onInput={fitPreviewHeight}
+            onFocus={fitPreviewHeight}
+            className="preview-textarea"
+          />
+        </div>
       )}
 
       {standup && (
-        <p style={{ fontSize: 11, color: "#97A0AF", margin: "6px 0 0" }}>
-          You can edit the text above before sending to Slack.
+        <p className="form-hint">
+          Edit the text above before sending. Changes are for this session only.
         </p>
       )}
 
-      {slackResult && (
+      {sendResult && (
         <div style={{ marginTop: 12 }}>
           <SectionMessage
-            appearance={slackResult.ok ? "success" : "error"}
+            appearance={sendResult.ok ? "success" : "error"}
           >
             <p>
-              {slackResult.ok
-                ? "Standup posted to Slack!"
-                : `Slack error: ${slackResult.error}`}
+              {sendResult.ok
+                ? "Standup posted successfully!"
+                : `Error: ${sendResult.error}`}
             </p>
           </SectionMessage>
         </div>

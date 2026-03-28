@@ -82,53 +82,24 @@ function GitHubConnect({ onConnectionChange, githubOrgs, githubOrgOnly, onFilter
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0" }}>
+      <div className="loading-inline">
         <Spinner size="small" />
-        <span style={{ fontSize: 13, color: "#6B778C" }}>Checking GitHub connection...</span>
+        <span>Checking GitHub connection...</span>
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        padding: 16,
-        background: "#f4f5f7",
-        borderRadius: 8,
-        border: "1px solid #dfe1e6",
-      }}
-    >
-      <h4 style={{ margin: "0 0 4px", fontWeight: 600 }}>
-        GitHub Integration
-        <span style={{ fontWeight: 400, fontSize: 12, color: "#6B778C", marginLeft: 8 }}>
-          Optional
-        </span>
-      </h4>
-      <p style={{ fontSize: 12, color: "#6B778C", margin: "0 0 12px" }}>
-        Connect GitHub to include commits and pull requests in your standup.
-      </p>
-
+    <div>
       {status?.connected ? (
         <div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "8px 12px",
-              background: "#E3FCEF",
-              borderRadius: 4,
-              marginBottom: 12,
-            }}
-          >
-            <span style={{ fontSize: 16 }}>&#10003;</span>
-            <span style={{ fontSize: 13, fontWeight: 500, color: "#006644" }}>
-              Connected as <strong>{status.username}</strong>
-            </span>
+          <div className="github-connected">
+            <span>&#10003;</span>
+            <span>Connected as <strong>{status.username}</strong></span>
           </div>
 
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <div className="github-filters">
+            <label>
               <input
                 type="checkbox"
                 checked={orgOnly}
@@ -140,35 +111,28 @@ function GitHubConnect({ onConnectionChange, githubOrgs, githubOrgOnly, onFilter
                   );
                 }}
               />
-              <span style={{ fontSize: 13 }}>Only include organization repos (exclude personal repos)</span>
+              <span>Only include organization repos (exclude personal)</span>
             </label>
 
-            <label style={{ fontWeight: 500, display: "block", marginBottom: 4, fontSize: 13 }}>
-              Filter to specific orgs
-            </label>
-            <input
-              type="text"
-              value={orgsInput}
-              onChange={(e) => {
-                setOrgsInput(e.target.value);
-                onFilterChange?.(
-                  e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
-                  orgOnly
-                );
-              }}
-              placeholder="e.g. hyperPad, my-company"
-              style={{
-                width: "100%",
-                padding: "6px 10px",
-                borderRadius: 3,
-                border: "1px solid #dfe1e6",
-                fontSize: 13,
-                boxSizing: "border-box",
-              }}
-            />
-            <p style={{ fontSize: 11, color: "#97A0AF", margin: "4px 0 0" }}>
-              Comma-separated. Leave empty to include all orgs. Personal repos are excluded when the toggle above is on.
-            </p>
+            <div className="form-group" style={{ marginTop: 8 }}>
+              <label className="form-label">Filter to specific orgs</label>
+              <input
+                type="text"
+                value={orgsInput}
+                onChange={(e) => {
+                  setOrgsInput(e.target.value);
+                  onFilterChange?.(
+                    e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                    orgOnly
+                  );
+                }}
+                placeholder="e.g. hyperPad, my-company"
+                className="form-input"
+              />
+              <p className="form-hint">
+                Comma-separated. Leave empty to include all orgs.
+              </p>
+            </div>
           </div>
 
           <Button
@@ -190,11 +154,11 @@ function GitHubConnect({ onConnectionChange, githubOrgs, githubOrgOnly, onFilter
           </Button>
           {connecting && (
             <div style={{ marginTop: 8 }}>
-              <p style={{ fontSize: 12, color: "#6B778C", margin: "0 0 8px" }}>
+              <p className="form-hint" style={{ marginBottom: 8 }}>
                 Complete the authorization in the new tab, then click below.
               </p>
               <Button appearance="subtle" onClick={handleCheckConnection}>
-                I've authorized — check connection
+                I've authorized -- check connection
               </Button>
             </div>
           )}

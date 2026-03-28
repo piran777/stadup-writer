@@ -1,37 +1,54 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { invoke } from "@forge/bridge";
-import PageHeader from "@atlaskit/page-header";
-import Tabs, { Tab, TabList, TabPanel } from "@atlaskit/tabs";
 import Spinner from "@atlaskit/spinner";
 import SectionMessage from "@atlaskit/section-message";
 import SettingsForm from "./components/SettingsForm";
 import StandupPreview from "./components/StandupPreview";
 import StandupHistory from "./components/StandupHistory";
 import SetupWizard from "./components/SetupWizard";
+import "./App.css";
 
 type UserConfig = {
   enabled: boolean;
   slackWebhookUrl: string;
+  teamsWebhookUrl?: string;
   timezone: string;
   postingHour: number;
   skipWeekends: boolean;
+  workDays?: number[];
   projects: string[] | "all";
   format: "bullets" | "prose";
   tone: "casual" | "professional";
+  weeklyDigest?: boolean;
+  customPrompt?: string;
+  githubUsername?: string;
+  githubToken?: string;
+  githubConnected?: boolean;
+  githubOrgs?: string[];
+  githubOrgOnly?: boolean;
 };
+
+type TabId = "preview" | "settings" | "history";
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: "preview", label: "Preview" },
+  { id: "settings", label: "Settings" },
+  { id: "history", label: "History" },
+];
 
 function App() {
   const [config, setConfig] = useState<UserConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showWizard, setShowWizard] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>("preview");
 
   const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
       const settings = await invoke<UserConfig>("getSettings");
       setConfig(settings);
-      if (!settings.slackWebhookUrl) {
+      if (!settings.slackWebhookUrl && !settings.teamsWebhookUrl) {
         setShowWizard(true);
       }
     } catch (err: any) {
@@ -66,7 +83,7 @@ function App() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
+      <div className="loading-center standup-app">
         <Spinner size="large" />
       </div>
     );
@@ -74,9 +91,11 @@ function App() {
 
   if (error) {
     return (
-      <SectionMessage appearance="error" title="Error">
-        <p>{error}</p>
-      </SectionMessage>
+      <div className="app-container standup-app">
+        <SectionMessage appearance="error" title="Error">
+          <p>{error}</p>
+        </SectionMessage>
+      </div>
     );
   }
 
@@ -90,30 +109,42 @@ function App() {
   }
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "16px 24px" }}>
-      <PageHeader>Auto Standup Bot</PageHeader>
+    <div className="app-container standup-app">
+      <div className="app-header">
+        <h1>Auto Standup Bot</h1>
+        <p>AI-powered standups from your Jira and GitHub activity</p>
+      </div>
 
-      <Tabs id="standup-tabs">
-        <TabList>
-          <Tab>Preview</Tab>
-          <Tab>Settings</Tab>
-          <Tab>History</Tab>
-        </TabList>
+      <div className="app-tab-bar" role="tablist" aria-label="App sections">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            id={`tab-${t.id}`}
+            aria-selected={activeTab === t.id}
+            aria-controls={`panel-${t.id}`}
+            tabIndex={activeTab === t.id ? 0 : -1}
+            className={`app-tab ${activeTab === t.id ? "app-tab--active" : ""}`}
+            onClick={() => setActiveTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        <TabPanel>
-          <StandupPreview />
-        </TabPanel>
-
-        <TabPanel>
-          {config && (
-            <SettingsForm config={config} onSave={handleSaveSettings} />
-          )}
-        </TabPanel>
-
-        <TabPanel>
-          <StandupHistory />
-        </TabPanel>
-      </Tabs>
+      <div
+        role="tabpanel"
+        id={`panel-${activeTab}`}
+        aria-labelledby={`tab-${activeTab}`}
+        className="app-tab-panel"
+      >
+        {activeTab === "preview" && <StandupPreview config={config} />}
+        {activeTab === "settings" && config && (
+          <SettingsForm config={config} onSave={handleSaveSettings} />
+        )}
+        {activeTab === "history" && <StandupHistory />}
+      </div>
     </div>
   );
 }

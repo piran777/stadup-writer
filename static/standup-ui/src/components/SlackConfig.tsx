@@ -37,11 +37,12 @@ function SlackConfig({ webhookUrl, onChange }: Props) {
   };
 
   return (
-    <div>
-      <label style={{ fontWeight: 500, display: "block", marginBottom: 4 }}>
-        Slack Webhook URL
+    <div className="webhook-config">
+      <label className="webhook-label">
+        <span className="channel-tag slack" style={{ marginRight: 6 }}>Slack</span>
+        Webhook URL
       </label>
-      <p style={{ fontSize: 12, color: "#6b778c", margin: "0 0 8px" }}>
+      <p className="webhook-hint">
         Create at{" "}
         <a
           href="https://api.slack.com/apps"
@@ -53,8 +54,8 @@ function SlackConfig({ webhookUrl, onChange }: Props) {
         &rarr; Incoming Webhooks &rarr; Add to channel.
       </p>
 
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-        <div style={{ flex: 1 }}>
+      <div className="inline-row">
+        <div className="flex-1">
           <Textfield
             value={webhookUrl}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -74,7 +75,7 @@ function SlackConfig({ webhookUrl, onChange }: Props) {
       </div>
 
       {webhookUrl.length > 0 && !isValidUrl && (
-        <p style={{ color: "#de350b", fontSize: 12, marginTop: 4 }}>
+        <p className="webhook-error">
           URL must start with https://hooks.slack.com/
         </p>
       )}
@@ -86,7 +87,7 @@ function SlackConfig({ webhookUrl, onChange }: Props) {
           >
             <p>
               {testResult.ok
-                ? "Webhook works! Check your Slack channel for the test message."
+                ? "Webhook works! Check your Slack channel."
                 : `Failed: ${testResult.error}`}
             </p>
           </SectionMessage>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Spinner from "@atlaskit/spinner";
-import SectionMessage from "@atlaskit/section-message";
 import { invoke } from "@forge/bridge";
+import CopyButton from "./CopyButton";
 
 type HistoryRecord = {
   date: string;
@@ -13,6 +13,7 @@ type HistoryRecord = {
 function StandupHistory() {
   const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     (async () => {
@@ -21,6 +22,9 @@ function StandupHistory() {
           "getHistory"
         );
         setHistory(result.history);
+        if (result.history.length > 0) {
+          setExpandedDates(new Set([result.history[0].date]));
+        }
       } catch {
         setHistory([]);
       }
@@ -28,9 +32,21 @@ function StandupHistory() {
     })();
   }, []);
 
+  const toggleExpand = (date: string) => {
+    setExpandedDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) {
+        next.delete(date);
+      } else {
+        next.add(date);
+      }
+      return next;
+    });
+  };
+
   if (loading) {
     return (
-      <div style={{ padding: 24 }}>
+      <div className="loading-center">
         <Spinner size="medium" />
       </div>
     );
@@ -38,59 +54,48 @@ function StandupHistory() {
 
   if (history.length === 0) {
     return (
-      <div style={{ padding: "16px 0" }}>
-        <SectionMessage>
-          <p>No standup history yet. Generate your first standup from the Preview tab.</p>
-        </SectionMessage>
+      <div className="empty-state">
+        <div className="empty-state-icon">&#128203;</div>
+        <h3>No History Yet</h3>
+        <p>
+          Generate your first standup from the Preview tab. Past standups will appear here.
+        </p>
       </div>
     );
   }
 
   return (
     <div style={{ padding: "16px 0" }}>
-      {history.map((record) => (
-        <div
-          key={record.date}
-          style={{
-            marginBottom: 16,
-            border: "1px solid #dfe1e6",
-            borderRadius: 8,
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              background: "#f4f5f7",
-              padding: "8px 16px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              borderBottom: "1px solid #dfe1e6",
-            }}
-          >
-            <strong>{record.date}</strong>
-            <span
-              style={{
-                fontSize: 12,
-                color: record.postedToSlack ? "#36B37E" : "#6b778c",
-              }}
+      {history.map((record) => {
+        const isExpanded = expandedDates.has(record.date);
+        return (
+          <div key={record.date} className="history-card">
+            <div
+              className="history-card-header"
+              onClick={() => toggleExpand(record.date)}
+              style={{ cursor: "pointer" }}
             >
-              {record.postedToSlack ? "Posted to Slack" : "Not posted"}
-            </span>
+              <strong>{record.date}</strong>
+              <div className="btn-group">
+                <span className={`status-badge ${record.postedToSlack ? "success" : "neutral"}`}>
+                  {record.postedToSlack ? "Posted" : "Not posted"}
+                </span>
+                <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+                  {isExpanded ? "▲" : "▼"}
+                </span>
+              </div>
+            </div>
+            <div className={`history-card-body ${isExpanded ? "" : "collapsed"}`}>
+              {record.content}
+            </div>
+            {isExpanded && (
+              <div className="history-card-actions">
+                <CopyButton text={record.content} label="Copy" />
+              </div>
+            )}
           </div>
-          <div
-            style={{
-              padding: 16,
-              whiteSpace: "pre-wrap",
-              fontFamily: "monospace",
-              fontSize: 13,
-              lineHeight: 1.6,
-            }}
-          >
-            {record.content}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

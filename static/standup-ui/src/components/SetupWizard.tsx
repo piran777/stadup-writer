@@ -67,6 +67,10 @@ function SetupWizard({ onComplete, onSave }: Props) {
     onComplete();
   };
 
+  const handleSkip = () => {
+    onComplete();
+  };
+
   const formatHour = (h: number) => {
     if (h === 0) return "12:00 AM";
     if (h < 12) return `${h}:00 AM`;
@@ -74,24 +78,38 @@ function SetupWizard({ onComplete, onSave }: Props) {
     return `${h - 12}:00 PM`;
   };
 
+  const totalSteps = 3;
+
   return (
-    <div style={{ maxWidth: 520, margin: "0 auto", padding: "32px 24px" }}>
-      <h2 style={{ marginBottom: 8 }}>Welcome to Auto Standup Bot</h2>
-      <p style={{ color: "#6b778c", marginBottom: 32 }}>
-        Let's get you set up in 3 quick steps.
-      </p>
+    <div className="wizard-container standup-app">
+      <div className="wizard-header">
+        <h2>Welcome to Auto Standup Bot</h2>
+        <p>Get set up in 3 quick steps</p>
+      </div>
+
+      <div className="wizard-progress">
+        {Array.from({ length: totalSteps }, (_, i) => (
+          <div
+            key={i}
+            className={`wizard-dot ${
+              i < step ? "completed" : i === step ? "active" : ""
+            }`}
+          />
+        ))}
+      </div>
 
       {step === 0 && (
-        <div>
-          <h3>Step 1: Slack Webhook URL</h3>
-          <p style={{ fontSize: 14, color: "#6b778c", marginBottom: 12 }}>
-            Create a Slack app with an Incoming Webhook and paste the URL here.{" "}
+        <div className="wizard-step">
+          <h3>Messaging Webhook</h3>
+          <p>
+            Paste a Slack Incoming Webhook URL to start. You can add Microsoft
+            Teams later in Settings.{" "}
             <a
               href="https://api.slack.com/messaging/webhooks"
               target="_blank"
               rel="noopener noreferrer"
             >
-              How to create a webhook
+              How to create a Slack webhook
             </a>
           </p>
           <Textfield
@@ -101,7 +119,7 @@ function SetupWizard({ onComplete, onSave }: Props) {
               setWebhookUrl(e.target.value)
             }
           />
-          <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+          <div className="wizard-actions">
             <Button
               appearance="subtle"
               onClick={handleTestWebhook}
@@ -115,6 +133,13 @@ function SetupWizard({ onComplete, onSave }: Props) {
               isDisabled={!webhookUrl}
             >
               Next
+            </Button>
+            <div style={{ flex: 1 }} />
+            <Button
+              appearance="subtle-link"
+              onClick={handleSkip}
+            >
+              Skip for now
             </Button>
           </div>
           {testResult && (
@@ -134,18 +159,13 @@ function SetupWizard({ onComplete, onSave }: Props) {
       )}
 
       {step === 1 && (
-        <div>
-          <h3>Step 2: Your Timezone</h3>
+        <div className="wizard-step">
+          <h3>Your Timezone</h3>
+          <p>We'll use this to post standups at the right time for you.</p>
           <select
             value={timezone}
             onChange={(e) => setTimezone(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: 3,
-              border: "1px solid #dfe1e6",
-              fontSize: 14,
-            }}
+            className="form-select"
           >
             {TIMEZONES.map((tz) => (
               <option key={tz} value={tz}>
@@ -153,7 +173,7 @@ function SetupWizard({ onComplete, onSave }: Props) {
               </option>
             ))}
           </select>
-          <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+          <div className="wizard-actions">
             <Button appearance="subtle" onClick={() => setStep(0)}>
               Back
             </Button>
@@ -165,21 +185,16 @@ function SetupWizard({ onComplete, onSave }: Props) {
       )}
 
       {step === 2 && (
-        <div>
-          <h3>Step 3: Posting Time</h3>
-          <p style={{ fontSize: 14, color: "#6b778c", marginBottom: 12 }}>
-            When should your standup be posted to Slack each weekday?
+        <div className="wizard-step">
+          <h3>Posting Time</h3>
+          <p>
+            When should your standup be posted each workday? Tip: set this 1
+            hour before your desired delivery for best accuracy.
           </p>
           <select
             value={postingHour}
             onChange={(e) => setPostingHour(parseInt(e.target.value, 10))}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: 3,
-              border: "1px solid #dfe1e6",
-              fontSize: 14,
-            }}
+            className="form-select"
           >
             {HOURS.map((h) => (
               <option key={h} value={h}>
@@ -187,7 +202,7 @@ function SetupWizard({ onComplete, onSave }: Props) {
               </option>
             ))}
           </select>
-          <div style={{ marginTop: 24, display: "flex", gap: 8 }}>
+          <div className="wizard-actions">
             <Button appearance="subtle" onClick={() => setStep(1)}>
               Back
             </Button>
