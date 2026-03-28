@@ -11,6 +11,7 @@ type UserConfig = {
   timezone: string;
   postingHour: number;
   skipWeekends: boolean;
+  workDays?: number[];
   projects: string[] | "all";
   format: "bullets" | "prose";
   tone: "casual" | "professional";
@@ -176,17 +177,50 @@ function SettingsForm({ config, onSave }: Props) {
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <label
-          style={{ display: "flex", alignItems: "center", gap: 8 }}
-        >
-          <Toggle
-            isChecked={form.skipWeekends}
-            onChange={() =>
-              handleChange("skipWeekends", !form.skipWeekends)
-            }
-          />
-          <span>Skip weekends</span>
+        <label style={{ fontWeight: 500, display: "block", marginBottom: 8 }}>
+          Working Days
         </label>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {[
+            { day: "Sun", val: 0 },
+            { day: "Mon", val: 1 },
+            { day: "Tue", val: 2 },
+            { day: "Wed", val: 3 },
+            { day: "Thu", val: 4 },
+            { day: "Fri", val: 5 },
+            { day: "Sat", val: 6 },
+          ].map(({ day, val }) => {
+            const currentDays = form.workDays ?? [1, 2, 3, 4, 5];
+            const isActive = currentDays.includes(val);
+            return (
+              <button
+                key={val}
+                type="button"
+                onClick={() => {
+                  const updated = isActive
+                    ? currentDays.filter((d) => d !== val)
+                    : [...currentDays, val].sort();
+                  handleChange("workDays", updated);
+                }}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 4,
+                  border: isActive ? "2px solid #0052CC" : "1px solid #dfe1e6",
+                  background: isActive ? "#DEEBFF" : "#fff",
+                  color: isActive ? "#0052CC" : "#6B778C",
+                  fontWeight: isActive ? 600 : 400,
+                  fontSize: 13,
+                  cursor: "pointer",
+                }}
+              >
+                {day}
+              </button>
+            );
+          })}
+        </div>
+        <p style={{ fontSize: 11, color: "#97A0AF", margin: "6px 0 0" }}>
+          Standups only auto-post on selected days. Monday's standup includes Friday's activity.
+        </p>
       </div>
 
       <div style={{ marginBottom: 24 }}>
@@ -194,8 +228,8 @@ function SettingsForm({ config, onSave }: Props) {
           githubOrgs={form.githubOrgs}
           githubOrgOnly={form.githubOrgOnly}
           onFilterChange={(orgs, orgOnlyVal) => {
-            handleChange("githubOrgs", orgs.length > 0 ? orgs : undefined);
-            handleChange("githubOrgOnly", orgOnlyVal || undefined);
+            handleChange("githubOrgs", orgs);
+            handleChange("githubOrgOnly", orgOnlyVal);
           }}
         />
       </div>

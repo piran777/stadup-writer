@@ -51,6 +51,7 @@ export type UserConfig = {
   timezone: string;
   postingHour: number;
   skipWeekends: boolean;
+  workDays?: number[];
   projects: string[] | "all";
   format: "bullets" | "prose";
   tone: "casual" | "professional";

@@ -7,10 +7,11 @@ const MAX_CHANGELOG_ISSUES = 20;
 
 export async function fetchUserActivity(
   accountId: string,
-  projectKeys?: string[] | "all"
+  projectKeys?: string[] | "all",
+  lookbackHours: number = 24
 ): Promise<UserActivity> {
   try {
-    const issues = await searchRecentIssues(accountId, projectKeys);
+    const issues = await searchRecentIssues(accountId, projectKeys, lookbackHours);
 
     if (issues.length === 0) {
       return emptyActivity();
@@ -33,13 +34,17 @@ function emptyActivity(): UserActivity {
 
 async function searchRecentIssues(
   accountId: string,
-  projectKeys?: string[] | "all"
+  projectKeys?: string[] | "all",
+  lookbackHours: number = 24
 ): Promise<any[]> {
-  let jql = `assignee = currentUser() AND updated >= -1d ORDER BY updated DESC`;
+  const lookbackDays = Math.ceil(lookbackHours / 24);
+  const jqlTimeFilter = `-${lookbackDays}d`;
+
+  let jql = `assignee = currentUser() AND updated >= ${jqlTimeFilter} ORDER BY updated DESC`;
 
   if (projectKeys && projectKeys !== "all" && projectKeys.length > 0) {
     const projectFilter = projectKeys.map((k) => `"${k}"`).join(", ");
-    jql = `assignee = currentUser() AND project IN (${projectFilter}) AND updated >= -1d ORDER BY updated DESC`;
+    jql = `assignee = currentUser() AND project IN (${projectFilter}) AND updated >= ${jqlTimeFilter} ORDER BY updated DESC`;
   }
 
   logger.info("Jira search executing", { phase: "jira", jql, accountId });

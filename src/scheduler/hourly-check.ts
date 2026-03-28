@@ -4,7 +4,7 @@ import { fetchGitHubActivity } from "../services/github-activity";
 import { generateStandup } from "../services/openai";
 import { postToSlack } from "../services/slack";
 import { UserConfig, StandupRecord, GitHubActivity } from "../types";
-import { isPostingTime, isWeekday } from "../utils/time";
+import { isPostingTime, isWorkDay, getActivityLookbackHours } from "../utils/time";
 import { truncateSlackMessage } from "../utils/format";
 import { isValidWebhookUrl } from "../utils/validation";
 import { logger } from "../utils/logger";
@@ -57,8 +57,8 @@ async function processUser(
   if (!isPostingTime(config.timezone, config.postingHour)) {
     return "skipped";
   }
-  if (config.skipWeekends && !isWeekday(config.timezone)) {
-    logger.standupSkipped(accountId, "weekend");
+  if (!isWorkDay(config.timezone, config.workDays, config.skipWeekends)) {
+    logger.standupSkipped(accountId, "not a work day");
     return "skipped";
   }
 
@@ -69,13 +69,15 @@ async function processUser(
     return "skipped";
   }
 
+  const lookbackHours = getActivityLookbackHours(config.timezone, config.workDays, config.skipWeekends);
+
   const [activity, githubActivity] = await Promise.all([
-    fetchUserActivity(accountId, config.projects),
+    fetchUserActivity(accountId, config.projects, lookbackHours),
     config.githubUsername && config.githubToken
       ? fetchGitHubActivity(config.githubUsername, config.githubToken, {
           orgs: config.githubOrgs,
           orgOnly: config.githubOrgOnly,
-        })
+        }, lookbackHours)
       : Promise.resolve<GitHubActivity>({ commits: [], pullRequests: [] }),
   ]);
 

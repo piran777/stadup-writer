@@ -22,8 +22,8 @@ function githubHeaders(token: string): Record<string, string> {
   };
 }
 
-function sinceDate(): string {
-  const d = new Date(Date.now() - 24 * 60 * 60 * 1000);
+function sinceDate(lookbackHours: number = 24): string {
+  const d = new Date(Date.now() - lookbackHours * 60 * 60 * 1000);
   return d.toISOString().split("T")[0];
 }
 
@@ -35,9 +35,10 @@ export type GitHubFilter = {
 async function fetchCommits(
   username: string,
   token: string,
-  filter?: GitHubFilter
+  filter?: GitHubFilter,
+  lookbackHours: number = 24
 ): Promise<GitHubCommit[]> {
-  const since = sinceDate();
+  const since = sinceDate(lookbackHours);
   let queryParts = `author:${username} author-date:>=${since}`;
 
   if (filter?.orgs && filter.orgs.length > 0) {
@@ -83,9 +84,10 @@ async function fetchCommits(
 async function fetchPullRequests(
   username: string,
   token: string,
-  filter?: GitHubFilter
+  filter?: GitHubFilter,
+  lookbackHours: number = 24
 ): Promise<GitHubPR[]> {
-  const since = sinceDate();
+  const since = sinceDate(lookbackHours);
   let queryParts = `author:${username} type:pr updated:>=${since}`;
 
   if (filter?.orgs && filter.orgs.length > 0) {
@@ -155,7 +157,8 @@ async function fetchUserOrgs(
 export async function fetchGitHubActivity(
   username: string,
   token: string,
-  filter?: GitHubFilter
+  filter?: GitHubFilter,
+  lookbackHours: number = 24
 ): Promise<GitHubActivity> {
   if (!username || !token) {
     return emptyGitHubActivity();
@@ -166,8 +169,8 @@ export async function fetchGitHubActivity(
     const searchFilter = hasOrgFilter ? filter : undefined;
 
     let [commits, pullRequests] = await Promise.all([
-      fetchCommits(username, token, searchFilter),
-      fetchPullRequests(username, token, searchFilter),
+      fetchCommits(username, token, searchFilter, lookbackHours),
+      fetchPullRequests(username, token, searchFilter, lookbackHours),
     ]);
 
     if (!hasOrgFilter && filter?.orgOnly) {

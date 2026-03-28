@@ -1,3 +1,5 @@
+const DEFAULT_WORK_DAYS = [1, 2, 3, 4, 5]; // Mon-Fri
+
 export function isPostingTime(
   timezone: string,
   postingHour: number
@@ -16,16 +18,55 @@ export function isPostingTime(
   }
 }
 
-export function isWeekday(timezone: string): boolean {
+export function getCurrentDayOfWeek(timezone: string): number {
   try {
     const now = new Date();
-    const formatter = new Intl.DateTimeFormat("en-US", {
+    const parts = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
       weekday: "short",
-    });
-    const day = formatter.format(now);
-    return day !== "Sat" && day !== "Sun";
+    }).formatToParts(now);
+    const dayStr = parts.find((p) => p.type === "weekday")?.value || "";
+    const dayMap: Record<string, number> = {
+      Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+    };
+    return dayMap[dayStr] ?? new Date().getDay();
   } catch {
-    return true;
+    return new Date().getDay();
   }
+}
+
+export function isWorkDay(
+  timezone: string,
+  workDays?: number[],
+  skipWeekends?: boolean
+): boolean {
+  const days = workDays && workDays.length > 0 ? workDays : (skipWeekends ? DEFAULT_WORK_DAYS : [0, 1, 2, 3, 4, 5, 6]);
+  const today = getCurrentDayOfWeek(timezone);
+  return days.includes(today);
+}
+
+export function isWeekday(timezone: string): boolean {
+  return isWorkDay(timezone, DEFAULT_WORK_DAYS);
+}
+
+export function getActivityLookbackHours(
+  timezone: string,
+  workDays?: number[],
+  skipWeekends?: boolean
+): number {
+  const days = workDays && workDays.length > 0 ? workDays : (skipWeekends ? DEFAULT_WORK_DAYS : [0, 1, 2, 3, 4, 5, 6]);
+  const today = getCurrentDayOfWeek(timezone);
+
+  if (!days.includes(today)) {
+    return 24;
+  }
+
+  let gapDays = 0;
+  let checkDay = ((today - 1) + 7) % 7;
+  while (!days.includes(checkDay) && gapDays < 7) {
+    gapDays++;
+    checkDay = ((checkDay - 1) + 7) % 7;
+  }
+
+  return (gapDays + 1) * 24;
 }
