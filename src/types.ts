@@ -48,6 +48,7 @@ export type CombinedActivity = {
 export type UserConfig = {
   enabled: boolean;
   slackWebhookUrl: string;
+  teamsWebhookUrl?: string;
   timezone: string;
   postingHour: number;
   skipWeekends: boolean;

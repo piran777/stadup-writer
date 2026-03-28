@@ -3,6 +3,7 @@ import { fetchUserActivity } from "../services/jira-activity";
 import { fetchGitHubActivity } from "../services/github-activity";
 import { generateStandup } from "../services/openai";
 import { postToSlack } from "../services/slack";
+import { postToTeams, isValidTeamsWebhookUrl } from "../services/teams";
 import { UserConfig, StandupRecord, GitHubActivity } from "../types";
 import { truncateSlackMessage } from "../utils/format";
 import { isValidWebhookUrl } from "../utils/validation";
@@ -37,20 +38,29 @@ export async function handleGenerateStandup(req: any) {
     const fullMessage = truncateSlackMessage(standup);
 
     let slackResult: { ok: boolean; error?: string } | undefined;
+    let teamsResult: { ok: boolean; error?: string } | undefined;
 
     if (sendToSlack) {
-      if (!config?.slackWebhookUrl) {
-        slackResult = { ok: false, error: "No Slack webhook URL configured. Go to Settings to add one." };
-      } else if (!isValidWebhookUrl(config.slackWebhookUrl)) {
-        slackResult = { ok: false, error: "Invalid Slack webhook URL. Check Settings." };
+      const hasSlack = config?.slackWebhookUrl && isValidWebhookUrl(config.slackWebhookUrl);
+      const hasTeams = config?.teamsWebhookUrl && isValidTeamsWebhookUrl(config.teamsWebhookUrl);
+
+      if (!hasSlack && !hasTeams) {
+        slackResult = { ok: false, error: "No webhook URLs configured. Go to Settings to add Slack or Teams." };
       } else {
-        slackResult = await postToSlack(config.slackWebhookUrl, fullMessage);
+        if (hasSlack) {
+          slackResult = await postToSlack(config!.slackWebhookUrl, fullMessage);
+        }
+        if (hasTeams) {
+          teamsResult = await postToTeams(config!.teamsWebhookUrl!, fullMessage);
+        }
       }
     }
 
+    const posted = slackResult?.ok || teamsResult?.ok || false;
+
     const record: StandupRecord = {
       generatedAt: new Date().toISOString(),
-      postedToSlack: slackResult?.ok ?? false,
+      postedToSlack: posted,
       content: fullMessage,
       activity,
     };
@@ -58,12 +68,13 @@ export async function handleGenerateStandup(req: any) {
     const dateKey = new Date().toISOString().split("T")[0];
     await kvs.set(`history:${accountId}:${dateKey}`, record);
 
-    logger.standupGenerated(accountId, record.postedToSlack);
+    logger.standupGenerated(accountId, posted);
 
     return {
       standup: fullMessage,
       activity,
       slackResult,
+      teamsResult,
     };
   } catch (error: any) {
     logger.error("Generate standup failed", {
@@ -84,6 +95,7 @@ export async function handleGenerateStandup(req: any) {
 export async function handleSendEditedStandup(req: any) {
   const accountId: string = req.context.accountId;
   const editedText: string = req.payload?.text ?? "";
+  const target: string = req.payload?.target ?? "all";
 
   if (!editedText.trim()) {
     return { ok: false, error: "Standup text is empty." };
@@ -94,21 +106,28 @@ export async function handleSendEditedStandup(req: any) {
       | UserConfig
       | undefined;
 
-    if (!config?.slackWebhookUrl) {
-      return { ok: false, error: "No Slack webhook URL configured. Go to Settings to add one." };
-    }
-    if (!isValidWebhookUrl(config.slackWebhookUrl)) {
-      return { ok: false, error: "Invalid Slack webhook URL. Check Settings." };
-    }
-
     const message = truncateSlackMessage(editedText);
-    const slackResult = await postToSlack(config.slackWebhookUrl, message);
+    const results: { slack?: { ok: boolean; error?: string }; teams?: { ok: boolean; error?: string } } = {};
 
-    if (slackResult.ok) {
+    if ((target === "all" || target === "slack") && config?.slackWebhookUrl && isValidWebhookUrl(config.slackWebhookUrl)) {
+      results.slack = await postToSlack(config.slackWebhookUrl, message);
+    }
+
+    if ((target === "all" || target === "teams") && config?.teamsWebhookUrl && isValidTeamsWebhookUrl(config.teamsWebhookUrl)) {
+      results.teams = await postToTeams(config.teamsWebhookUrl, message);
+    }
+
+    if (!results.slack && !results.teams) {
+      return { ok: false, error: "No webhook URLs configured. Go to Settings to add Slack or Teams." };
+    }
+
+    const anyOk = results.slack?.ok || results.teams?.ok;
+
+    if (anyOk) {
       const dateKey = new Date().toISOString().split("T")[0];
       const record: StandupRecord = {
         generatedAt: new Date().toISOString(),
-        postedToSlack: true,
+        postedToSlack: anyOk,
         content: message,
         activity: { completed: [], inProgress: [], commented: [], blocked: [] },
       };
@@ -116,11 +135,16 @@ export async function handleSendEditedStandup(req: any) {
       logger.standupGenerated(accountId, true);
     }
 
-    return slackResult;
+    const errors = [
+      results.slack && !results.slack.ok ? `Slack: ${results.slack.error}` : "",
+      results.teams && !results.teams.ok ? `Teams: ${results.teams.error}` : "",
+    ].filter(Boolean).join("; ");
+
+    return { ok: !!anyOk, error: errors || undefined, results };
   } catch (error: any) {
     logger.error("Send edited standup failed", {
       accountId,
-      phase: "slack",
+      phase: "messaging",
       error: error.message,
     });
     return { ok: false, error: error.message };

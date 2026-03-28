@@ -44,6 +44,9 @@ permissions:
         - address: hooks.slack.com
         - address: api.github.com
         - address: github.com
+        - address: "*.webhook.office.com"
+        - address: "*.office.com"
+        - address: "*.office365.com"
 
 app:
   id: ari:cloud:ecosystem::app/ddd7df39-862c-46ee-9836-1d72dc6a9e5a

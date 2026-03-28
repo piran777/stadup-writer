@@ -1,4 +1,5 @@
 import { UserConfig } from "../types";
+import { isValidTeamsWebhookUrl } from "../services/teams";
 
 const WEBHOOK_PREFIX = "https://hooks.slack.com/";
 
@@ -13,6 +14,12 @@ export function validateConfig(config: Partial<UserConfig>): ValidationResult {
   if (config.slackWebhookUrl !== undefined) {
     if (config.slackWebhookUrl && !config.slackWebhookUrl.startsWith(WEBHOOK_PREFIX)) {
       errors.push("Slack webhook URL must start with https://hooks.slack.com/");
+    }
+  }
+
+  if (config.teamsWebhookUrl !== undefined) {
+    if (config.teamsWebhookUrl && !isValidTeamsWebhookUrl(config.teamsWebhookUrl)) {
+      errors.push("Teams webhook URL doesn't look like a valid Microsoft Teams webhook");
     }
   }
 

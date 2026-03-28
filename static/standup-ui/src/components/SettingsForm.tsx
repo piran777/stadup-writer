@@ -3,11 +3,13 @@ import Button from "@atlaskit/button/standard-button";
 import Toggle from "@atlaskit/toggle";
 import SectionMessage from "@atlaskit/section-message";
 import SlackConfig from "./SlackConfig";
+import TeamsConfig from "./TeamsConfig";
 import GitHubConnect from "./GitHubConnect";
 
 type UserConfig = {
   enabled: boolean;
   slackWebhookUrl: string;
+  teamsWebhookUrl?: string;
   timezone: string;
   postingHour: number;
   skipWeekends: boolean;
@@ -102,6 +104,13 @@ function SettingsForm({ config, onSave }: Props) {
         <SlackConfig
           webhookUrl={form.slackWebhookUrl}
           onChange={(url) => handleChange("slackWebhookUrl", url)}
+        />
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <TeamsConfig
+          webhookUrl={form.teamsWebhookUrl || ""}
+          onChange={(url) => handleChange("teamsWebhookUrl", url)}
         />
       </div>
 

@@ -1,6 +1,7 @@
 import kvs from "@forge/kvs";
 import { UserConfig } from "../types";
 import { testSlackWebhook } from "../services/slack";
+import { testTeamsWebhook, isValidTeamsWebhookUrl } from "../services/teams";
 import { validateConfig, isValidWebhookUrl } from "../utils/validation";
 import { logger } from "../utils/logger";
 
@@ -68,4 +69,15 @@ export async function handleTestWebhook(req: any) {
     return { ok: false, error: "Invalid Slack webhook URL format" };
   }
   return testSlackWebhook(webhookUrl);
+}
+
+export async function handleTestTeamsWebhook(req: any) {
+  const webhookUrl: string = req.payload?.webhookUrl;
+  if (!webhookUrl) {
+    return { ok: false, error: "No webhook URL provided" };
+  }
+  if (!isValidTeamsWebhookUrl(webhookUrl)) {
+    return { ok: false, error: "Invalid Teams webhook URL format" };
+  }
+  return testTeamsWebhook(webhookUrl);
 }

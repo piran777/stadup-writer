@@ -3,6 +3,7 @@ import { fetchUserActivity } from "../services/jira-activity";
 import { fetchGitHubActivity } from "../services/github-activity";
 import { generateStandup } from "../services/openai";
 import { postToSlack } from "../services/slack";
+import { postToTeams, isValidTeamsWebhookUrl } from "../services/teams";
 import { UserConfig, StandupRecord, GitHubActivity } from "../types";
 import { isPostingTime, isWorkDay, getActivityLookbackHours } from "../utils/time";
 import { truncateSlackMessage } from "../utils/format";
@@ -50,8 +51,10 @@ async function processUser(
   if (!config.enabled) {
     return "skipped";
   }
-  if (!config.slackWebhookUrl || !isValidWebhookUrl(config.slackWebhookUrl)) {
-    logger.standupSkipped(accountId, "invalid or missing webhook URL");
+  const hasSlack = config.slackWebhookUrl && isValidWebhookUrl(config.slackWebhookUrl);
+  const hasTeams = config.teamsWebhookUrl && isValidTeamsWebhookUrl(config.teamsWebhookUrl);
+  if (!hasSlack && !hasTeams) {
+    logger.standupSkipped(accountId, "no valid webhook URLs");
     return "skipped";
   }
   if (!isPostingTime(config.timezone, config.postingHour)) {
@@ -89,25 +92,39 @@ async function processUser(
   }
 
   const message = truncateSlackMessage(standup);
-  const slackResult = await postToSlack(config.slackWebhookUrl, message);
+
+  let slackOk = false;
+  let teamsOk = false;
+
+  if (hasSlack) {
+    const slackResult = await postToSlack(config.slackWebhookUrl, message);
+    slackOk = slackResult.ok;
+    if (!slackOk) {
+      logger.error("Slack post failed", { accountId, phase: "slack", error: slackResult.error });
+    }
+  }
+
+  if (hasTeams) {
+    const teamsResult = await postToTeams(config.teamsWebhookUrl!, message);
+    teamsOk = teamsResult.ok;
+    if (!teamsOk) {
+      logger.error("Teams post failed", { accountId, phase: "teams", error: teamsResult.error });
+    }
+  }
+
+  const posted = slackOk || teamsOk;
 
   const record: StandupRecord = {
     generatedAt: new Date().toISOString(),
-    postedToSlack: slackResult.ok,
+    postedToSlack: posted,
     content: message,
     activity,
   };
 
   await kvs.set(`history:${accountId}:${dateKey}`, record);
 
-  if (slackResult.ok) {
+  if (posted) {
     logger.standupGenerated(accountId, true);
-  } else {
-    logger.error("Slack post failed", {
-      accountId,
-      phase: "slack",
-      error: slackResult.error,
-    });
   }
 
   return "processed";

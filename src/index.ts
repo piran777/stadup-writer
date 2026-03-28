@@ -1,6 +1,6 @@
 import Resolver from "@forge/resolver";
 import { handleGenerateStandup, handleSendEditedStandup } from "./resolvers/generate-standup";
-import { handleGetSettings, handleSaveSettings, handleTestWebhook } from "./resolvers/settings";
+import { handleGetSettings, handleSaveSettings, handleTestWebhook, handleTestTeamsWebhook } from "./resolvers/settings";
 import { handleGetHistory } from "./resolvers/history";
 import {
   handleGetGitHubAuthUrl,
@@ -18,6 +18,7 @@ resolver.define("getSettings", handleGetSettings);
 resolver.define("saveSettings", handleSaveSettings);
 resolver.define("getHistory", handleGetHistory);
 resolver.define("testWebhook", handleTestWebhook);
+resolver.define("testTeamsWebhook", handleTestTeamsWebhook);
 resolver.define("sendEditedStandup", handleSendEditedStandup);
 resolver.define("getGitHubAuthUrl", handleGetGitHubAuthUrl);
 resolver.define("getGitHubStatus", handleGetGitHubStatus);
