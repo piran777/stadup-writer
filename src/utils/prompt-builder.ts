@@ -1,11 +1,23 @@
 import { UserActivity, GitHubActivity } from "../types";
 
+export type PromptOptions = {
+  format: "bullets" | "prose";
+  tone: "casual" | "professional";
+  github?: GitHubActivity;
+  isWeeklyDigest?: boolean;
+  customPrompt?: string;
+};
+
 export function buildPrompt(
   activity: UserActivity,
   format: "bullets" | "prose",
   tone: "casual" | "professional",
-  github?: GitHubActivity
+  github?: GitHubActivity,
+  options?: { isWeeklyDigest?: boolean; customPrompt?: string }
 ): { system: string; user: string } {
+  const isWeekly = options?.isWeeklyDigest ?? false;
+  const customPrompt = options?.customPrompt?.trim();
+
   const toneInstruction =
     tone === "casual"
       ? "Use a friendly, conversational tone."
@@ -13,21 +25,38 @@ export function buildPrompt(
 
   const formatInstruction =
     format === "prose"
-      ? "Write the standup as short paragraphs instead of bullet points."
+      ? isWeekly
+        ? "Write the weekly summary as short paragraphs."
+        : "Write the standup as short paragraphs instead of bullet points."
       : "Use bullet points for each section.";
 
   const hasGitHub = github && (github.commits.length > 0 || github.pullRequests.length > 0);
 
-  const system = [
-    "You are a concise standup summary writer.",
-    "Given Jira ticket activity" + (hasGitHub ? " and GitHub development activity" : "") + ", write a standup update.",
-    "Be brief and specific. Use ticket keys (e.g., DEMO-42) when available.",
-    hasGitHub ? "When a GitHub commit or PR is linked to a Jira ticket, combine them into one bullet instead of listing separately." : "",
-    "No filler words or unnecessary pleasantries.",
-    toneInstruction,
-    formatInstruction,
-    'Use Slack mrkdwn formatting: *bold* for headers, - for bullets.',
-  ].filter(Boolean).join(" ");
+  const systemParts = isWeekly
+    ? [
+        "You are a concise weekly progress summary writer.",
+        "Given a full week of Jira ticket activity" + (hasGitHub ? " and GitHub development activity" : "") + ", write a weekly digest.",
+        "Group related work together. Highlight key accomplishments, ongoing work, and blockers.",
+        "Be brief and specific. Use ticket keys (e.g., DEMO-42) when available.",
+        hasGitHub ? "When a GitHub commit or PR is linked to a Jira ticket, combine them into one bullet instead of listing separately." : "",
+        "No filler words or unnecessary pleasantries.",
+      ]
+    : [
+        "You are a concise standup summary writer.",
+        "Given Jira ticket activity" + (hasGitHub ? " and GitHub development activity" : "") + ", write a standup update.",
+        "Be brief and specific. Use ticket keys (e.g., DEMO-42) when available.",
+        hasGitHub ? "When a GitHub commit or PR is linked to a Jira ticket, combine them into one bullet instead of listing separately." : "",
+        "No filler words or unnecessary pleasantries.",
+      ];
+
+  systemParts.push(toneInstruction, formatInstruction);
+  systemParts.push('Use Slack mrkdwn formatting: *bold* for headers, - for bullets.');
+
+  if (customPrompt) {
+    systemParts.push(`Additional instructions from the user: ${customPrompt}`);
+  }
+
+  const system = systemParts.filter(Boolean).join(" ");
 
   const activityLines: string[] = [];
 
@@ -77,8 +106,27 @@ export function buildPrompt(
     }
   }
 
-  const outputFormat =
-    format === "prose"
+  let outputFormat: string;
+
+  if (isWeekly) {
+    outputFormat = format === "prose"
+      ? "Output as short paragraphs for Accomplishments, Ongoing Work, and Blockers/Risks."
+      : [
+          "Output format:",
+          "*This Week's Accomplishments:*",
+          "- bullet points",
+          "",
+          "*Ongoing Work:*",
+          "- bullet points",
+          "",
+          "*Blockers / Risks:*",
+          '- bullet points or "None"',
+          "",
+          "*Next Week Focus:*",
+          "- bullet points",
+        ].join("\n");
+  } else {
+    outputFormat = format === "prose"
       ? "Output as short paragraphs for Yesterday, Today, and Blockers."
       : [
           "Output format:",
@@ -91,9 +139,14 @@ export function buildPrompt(
           "*Blockers:*",
           '- bullet points or "None"',
         ].join("\n");
+  }
+
+  const intro = isWeekly
+    ? "Generate a weekly progress digest from this week's activity:\n"
+    : "Generate a standup summary from this activity:\n";
 
   const user = [
-    "Generate a standup summary from this activity:\n",
+    intro,
     activityLines.join("\n"),
     "\n" + outputFormat,
   ].join("\n");

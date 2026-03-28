@@ -49,6 +49,40 @@ export function isWeekday(timezone: string): boolean {
   return isWorkDay(timezone, DEFAULT_WORK_DAYS);
 }
 
+export function isLastWorkDayOfWeek(
+  timezone: string,
+  workDays?: number[],
+  skipWeekends?: boolean
+): boolean {
+  const days = workDays && workDays.length > 0 ? workDays : (skipWeekends ? DEFAULT_WORK_DAYS : [0, 1, 2, 3, 4, 5, 6]);
+  const today = getCurrentDayOfWeek(timezone);
+  if (!days.includes(today)) return false;
+
+  const sortedDays = [...days].sort((a, b) => a - b);
+  const lastDay = sortedDays[sortedDays.length - 1];
+  return today === lastDay;
+}
+
+export function getWeeklyLookbackHours(
+  timezone: string,
+  workDays?: number[],
+  skipWeekends?: boolean
+): number {
+  const days = workDays && workDays.length > 0 ? workDays : (skipWeekends ? DEFAULT_WORK_DAYS : [0, 1, 2, 3, 4, 5, 6]);
+  const today = getCurrentDayOfWeek(timezone);
+  const sortedDays = [...days].sort((a, b) => a - b);
+  const firstDay = sortedDays[0];
+
+  let span: number;
+  if (today >= firstDay) {
+    span = today - firstDay;
+  } else {
+    span = 7 - firstDay + today;
+  }
+
+  return (span + 1) * 24;
+}
+
 export function getActivityLookbackHours(
   timezone: string,
   workDays?: number[],

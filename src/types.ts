@@ -56,6 +56,8 @@ export type UserConfig = {
   projects: string[] | "all";
   format: "bullets" | "prose";
   tone: "casual" | "professional";
+  weeklyDigest?: boolean;
+  customPrompt?: string;
   githubUsername?: string;
   githubToken?: string;
   githubConnected?: boolean;

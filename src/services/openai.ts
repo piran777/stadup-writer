@@ -10,22 +10,27 @@ export async function generateStandup(
   activity: UserActivity,
   format: "bullets" | "prose" = "bullets",
   tone: "casual" | "professional" = "professional",
-  github?: GitHubActivity
+  github?: GitHubActivity,
+  options?: { isWeeklyDigest?: boolean; customPrompt?: string }
 ): Promise<string> {
   const hasGitHub = github && (github.commits.length > 0 || github.pullRequests.length > 0);
   if (isEmptyActivity(activity) && !hasGitHub) {
-    return "No Jira activity in the last 24 hours.";
+    return options?.isWeeklyDigest
+      ? "No activity this week."
+      : "No Jira activity in the last 24 hours.";
   }
 
-  const prompt = buildPrompt(activity, format, tone, github);
+  const prompt = buildPrompt(activity, format, tone, github, options);
+
+  const maxTokens = options?.isWeeklyDigest ? 600 : 300;
 
   try {
-    return await callOpenAI(prompt);
+    return await callOpenAI(prompt, maxTokens);
   } catch (error: any) {
     if (error.status === 429) {
       await sleep(RETRY_DELAY_MS);
       try {
-        return await callOpenAI(prompt);
+        return await callOpenAI(prompt, maxTokens);
       } catch {
         return buildFallbackStandup(activity);
       }
@@ -37,7 +42,7 @@ export async function generateStandup(
 async function callOpenAI(prompt: {
   system: string;
   user: string;
-}): Promise<string> {
+}, maxTokens: number = 300): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY not configured");
@@ -55,7 +60,7 @@ async function callOpenAI(prompt: {
         { role: "system", content: prompt.system },
         { role: "user", content: prompt.user },
       ],
-      max_tokens: 300,
+      max_tokens: maxTokens,
       temperature: 0.3,
     }),
   });

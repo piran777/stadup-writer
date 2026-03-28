@@ -17,6 +17,8 @@ type UserConfig = {
   projects: string[] | "all";
   format: "bullets" | "prose";
   tone: "casual" | "professional";
+  weeklyDigest?: boolean;
+  customPrompt?: string;
   githubUsername?: string;
   githubToken?: string;
   githubConnected?: boolean;
@@ -183,6 +185,49 @@ function SettingsForm({ config, onSave }: Props) {
           <option value="professional">Professional</option>
           <option value="casual">Casual</option>
         </select>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <label
+          style={{ display: "flex", alignItems: "center", gap: 8 }}
+        >
+          <Toggle
+            isChecked={form.weeklyDigest ?? false}
+            onChange={() => handleChange("weeklyDigest", !form.weeklyDigest)}
+          />
+          <span style={{ fontWeight: 500 }}>
+            Weekly digest on last work day
+          </span>
+        </label>
+        <p style={{ fontSize: 11, color: "#97A0AF", margin: "4px 0 0" }}>
+          On the last working day of the week, posts a full week summary instead of a daily standup.
+        </p>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ fontWeight: 500, display: "block", marginBottom: 4 }}>
+          Custom AI Instructions
+        </label>
+        <p style={{ fontSize: 12, color: "#6b778c", margin: "0 0 8px" }}>
+          Optional. Tell the AI how to write your standups (e.g. "Write from a PM
+          perspective", "Include emojis", "Keep it under 3 bullets per section").
+        </p>
+        <textarea
+          value={form.customPrompt || ""}
+          onChange={(e) => handleChange("customPrompt", e.target.value)}
+          placeholder='e.g. "Write like a senior engineer. Be very concise. Use emojis for section headers."'
+          rows={3}
+          style={{
+            width: "100%",
+            padding: "8px 12px",
+            borderRadius: 3,
+            border: "1px solid #dfe1e6",
+            fontSize: 14,
+            fontFamily: "inherit",
+            resize: "vertical",
+            boxSizing: "border-box",
+          }}
+        />
       </div>
 
       <div style={{ marginBottom: 16 }}>

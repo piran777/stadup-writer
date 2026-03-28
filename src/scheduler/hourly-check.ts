@@ -5,7 +5,7 @@ import { generateStandup } from "../services/openai";
 import { postToSlack } from "../services/slack";
 import { postToTeams, isValidTeamsWebhookUrl } from "../services/teams";
 import { UserConfig, StandupRecord, GitHubActivity } from "../types";
-import { isPostingTime, isWorkDay, getActivityLookbackHours } from "../utils/time";
+import { isPostingTime, isWorkDay, getActivityLookbackHours, isLastWorkDayOfWeek, getWeeklyLookbackHours } from "../utils/time";
 import { truncateSlackMessage } from "../utils/format";
 import { isValidWebhookUrl } from "../utils/validation";
 import { logger } from "../utils/logger";
@@ -72,7 +72,10 @@ async function processUser(
     return "skipped";
   }
 
-  const lookbackHours = getActivityLookbackHours(config.timezone, config.workDays, config.skipWeekends);
+  const useWeeklyDigest = config.weeklyDigest && isLastWorkDayOfWeek(config.timezone, config.workDays, config.skipWeekends);
+  const lookbackHours = useWeeklyDigest
+    ? getWeeklyLookbackHours(config.timezone, config.workDays, config.skipWeekends)
+    : getActivityLookbackHours(config.timezone, config.workDays, config.skipWeekends);
 
   const [activity, githubActivity] = await Promise.all([
     fetchUserActivity(accountId, config.projects, lookbackHours),
@@ -84,9 +87,12 @@ async function processUser(
       : Promise.resolve<GitHubActivity>({ commits: [], pullRequests: [] }),
   ]);
 
-  const standup = await generateStandup(activity, config.format, config.tone, githubActivity);
+  const standup = await generateStandup(
+    activity, config.format, config.tone, githubActivity,
+    { isWeeklyDigest: useWeeklyDigest, customPrompt: config.customPrompt }
+  );
 
-  if (standup === "No Jira activity in the last 24 hours.") {
+  if (standup === "No Jira activity in the last 24 hours." || standup === "No activity this week.") {
     logger.standupSkipped(accountId, "no activity");
     return "skipped";
   }

@@ -32,7 +32,8 @@ export async function handleGenerateStandup(req: any) {
       activity,
       config?.format || "bullets",
       config?.tone || "professional",
-      githubActivity
+      githubActivity,
+      { customPrompt: config?.customPrompt }
     );
 
     const fullMessage = truncateSlackMessage(standup);
