@@ -53,4 +53,4 @@ app:
   runtime:
     name: nodejs22.x
   licensing:
-    enabled: true
+    enabled: false

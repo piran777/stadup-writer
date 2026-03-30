@@ -200,28 +200,28 @@
   flex-wrap: wrap;
 }
 
-.day-btn {
+.standup-app .day-btn {
   padding: 6px 12px;
   border-radius: var(--radius-sm);
   font-size: 13px;
   cursor: pointer;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text-subtle);
+  border: 1px solid var(--color-border) !important;
+  background: var(--color-surface) !important;
+  color: var(--color-text-subtle) !important;
   font-weight: 400;
   transition: all 0.15s ease;
 }
 
-.day-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+.standup-app .day-btn:hover {
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary) !important;
 }
 
-.day-btn.active {
-  border: 2px solid var(--color-primary);
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  font-weight: 600;
+.standup-app .day-btn.active {
+  border: 2px solid var(--color-primary) !important;
+  background: var(--color-primary-light) !important;
+  color: var(--color-primary) !important;
+  font-weight: 600 !important;
 }
 
 /* ── Status Badge ──────────────────────────────── */

@@ -64,15 +64,20 @@ function App() {
 
   const handleSaveSettings = async (updates: Partial<UserConfig>) => {
     try {
-      const result = await invoke<{ success: boolean; config: UserConfig }>(
-        "saveSettings",
-        updates
-      );
-      if (result.success) {
-        setConfig(result.config);
+      const result = await invoke<{
+        success: boolean;
+        config?: UserConfig;
+        errors?: string[];
+      }>("saveSettings", updates);
+
+      if (!result.success) {
+        throw new Error(result.errors?.join("\n") || "Failed to save settings");
       }
+
+      if (result.config) setConfig(result.config);
     } catch (err: any) {
       setError(err.message || "Failed to save settings");
+      throw err;
     }
   };
 

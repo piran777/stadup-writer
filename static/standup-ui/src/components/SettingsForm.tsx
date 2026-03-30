@@ -63,6 +63,7 @@ function SettingsForm({ config, onSave }: Props) {
   const [form, setForm] = useState<UserConfig>({ ...config });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleChange = <K extends keyof UserConfig>(
     key: K,
@@ -73,11 +74,18 @@ function SettingsForm({ config, onSave }: Props) {
   };
 
   const handleSubmit = async () => {
-    setSaving(true);
-    await onSave(form);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    try {
+      setSaveError(null);
+      setSaving(true);
+      await onSave(form);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err: any) {
+      setSaveError(err?.message || "Failed to save settings");
+      setSaved(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const formatHour = (h: number) => {
@@ -304,6 +312,11 @@ function SettingsForm({ config, onSave }: Props) {
         {saved && (
           <SectionMessage appearance="success">
             <p>Settings saved.</p>
+          </SectionMessage>
+        )}
+        {saveError && (
+          <SectionMessage appearance="error" title="Could not save">
+            <p>{saveError}</p>
           </SectionMessage>
         )}
       </div>
