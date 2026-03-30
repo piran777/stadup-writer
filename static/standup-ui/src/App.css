@@ -582,10 +582,21 @@
 
 .save-bar {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   gap: var(--space-sm);
   padding: var(--space-md) 0;
   margin-top: var(--space-sm);
+}
+
+.save-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.save-feedback {
+  width: 100%;
 }
 
 /* ── Channel Tags ──────────────────────────────── */
@@ -748,7 +759,7 @@
 
 /* ── Buttons: reset native thick borders + tab-like hover ─ */
 
-.standup-app button:not(.app-tab):not(.switch-toggle) {
+.standup-app button:not(.app-tab):not(.switch-toggle):not(.day-btn) {
   appearance: none;
   -webkit-appearance: none;
   border-radius: 3px;
@@ -767,26 +778,26 @@
   transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.standup-app button:not(.app-tab):not(.switch-toggle):hover:not(:disabled):not([disabled]):not([aria-disabled="true"]) {
+.standup-app button:not(.app-tab):not(.switch-toggle):not(.day-btn):hover:not(:disabled):not([disabled]):not([aria-disabled="true"]) {
   background: var(--color-surface-raised) !important;
   border-color: var(--color-border) !important;
   color: var(--color-text) !important;
   box-shadow: none !important;
 }
 
-.standup-app button:not(.app-tab):not(.switch-toggle):focus-visible {
+.standup-app button:not(.app-tab):not(.switch-toggle):not(.day-btn):focus-visible {
   outline: 2px solid var(--color-border-focus);
   outline-offset: 2px;
 }
 
-.standup-app button:not(.app-tab):not(.switch-toggle):disabled,
-.standup-app button:not(.app-tab):not(.switch-toggle)[disabled],
-.standup-app button:not(.app-tab):not(.switch-toggle)[aria-disabled="true"] {
+.standup-app button:not(.app-tab):not(.switch-toggle):not(.day-btn):disabled,
+.standup-app button:not(.app-tab):not(.switch-toggle):not(.day-btn)[disabled],
+.standup-app button:not(.app-tab):not(.switch-toggle):not(.day-btn)[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.55;
 }
 
-.standup-app button:not(.app-tab):not(.switch-toggle)[aria-disabled="true"]:hover {
+.standup-app button:not(.app-tab):not(.switch-toggle):not(.day-btn)[aria-disabled="true"]:hover {
   background: var(--color-surface) !important;
 }
 

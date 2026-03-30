@@ -302,23 +302,27 @@ function SettingsForm({ config, onSave }: Props) {
 
       {/* ── Save ───────────────────────────────── */}
       <div className="save-bar">
-        <Button
-          appearance="primary"
-          onClick={handleSubmit}
-          isDisabled={saving}
-        >
-          {saving ? "Saving..." : "Save Settings"}
-        </Button>
-        {saved && (
-          <SectionMessage appearance="success">
-            <p>Settings saved.</p>
-          </SectionMessage>
-        )}
-        {saveError && (
-          <SectionMessage appearance="error" title="Could not save">
-            <p>{saveError}</p>
-          </SectionMessage>
-        )}
+        <div className="save-actions">
+          <Button
+            appearance="primary"
+            onClick={handleSubmit}
+            isDisabled={saving}
+          >
+            {saving ? "Saving..." : "Save Settings"}
+          </Button>
+        </div>
+        <div className="save-feedback" aria-live="polite">
+          {saved && (
+            <SectionMessage appearance="success">
+              <p>Settings saved.</p>
+            </SectionMessage>
+          )}
+          {saveError && (
+            <SectionMessage appearance="error" title="Could not save">
+              <p>{saveError}</p>
+            </SectionMessage>
+          )}
+        </div>
       </div>
     </div>
   );
