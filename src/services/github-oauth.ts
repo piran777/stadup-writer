@@ -6,6 +6,21 @@ const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
 const OAUTH_SCOPES = "repo read:user";
 
+/**
+ * Per-environment OAuth callback. Forge stores OAuth `state` in KVS per environment.
+ * If GitHub's redirect hits the *wrong* webtrigger (e.g. dev URL while the user
+ * connected from prod Jira), the callback runs in the wrong env and state is missing.
+ *
+ * Set `GITHUB_REDIRECT_URI` to the webtrigger URL for *this* Forge environment:
+ *   forge webtrigger create -e production -f github-oauth-callback
+ * Register that exact URL (and dev's, if you use dev) in the GitHub OAuth app
+ * — GitHub allows multiple callback URLs, one per line.
+ */
+function getRedirectUri(): string | undefined {
+  const u = process.env.GITHUB_REDIRECT_URI?.trim();
+  return u || undefined;
+}
+
 function getClientId(): string {
   return process.env.GITHUB_CLIENT_ID || "";
 }
@@ -21,13 +36,31 @@ export async function generateAuthUrl(accountId: string): Promise<string> {
   }
 
   const state = `${accountId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-  await kvs.set(`github-oauth-state:${state}`, JSON.stringify({ accountId, expires: Date.now() + 600_000 }));
+  const redirectUri = getRedirectUri();
+
+  logger.info("GitHub OAuth state created", {
+    phase: "github-oauth",
+    accountId,
+    hasRedirectUri: !!redirectUri,
+    redirectUri,
+    stateSuffix: state.slice(-8),
+    expiresInSeconds: 600,
+  });
+
+  await kvs.set(
+    `github-oauth-state:${state}`,
+    JSON.stringify({ accountId, expires: Date.now() + 600_000 })
+  );
 
   const params = new URLSearchParams({
     client_id: clientId,
     scope: OAUTH_SCOPES,
     state,
   });
+
+  if (redirectUri) {
+    params.set("redirect_uri", redirectUri);
+  }
 
   return `${GITHUB_AUTHORIZE_URL}?${params.toString()}`;
 }
@@ -36,9 +69,23 @@ export async function exchangeCodeForToken(
   code: string,
   state: string
 ): Promise<{ accountId: string; username: string }> {
-  const raw = await kvs.get(`github-oauth-state:${state}`) as string | undefined;
+  logger.info("GitHub OAuth callback received", {
+    phase: "github-oauth",
+    hasCode: !!code,
+    stateSuffix: (state || "").slice(-8),
+    redirectUri: getRedirectUri(),
+  });
+
+  const raw = (await kvs.get(`github-oauth-state:${state}`)) as string | undefined;
   if (!raw) {
-    throw new Error("Invalid or expired OAuth state");
+    logger.error("GitHub OAuth state missing in KVS", {
+      phase: "github-oauth",
+      stateSuffix: (state || "").slice(-8),
+      redirectUri: getRedirectUri(),
+    });
+    throw new Error(
+      "Invalid or expired OAuth state. Often this means GitHub redirected to the wrong Forge environment: set GITHUB_REDIRECT_URI to this env's webtrigger URL (forge webtrigger create -f github-oauth-callback) and add that URL to your GitHub OAuth app callbacks."
+    );
   }
 
   const stateData = JSON.parse(raw);
@@ -52,6 +99,16 @@ export async function exchangeCodeForToken(
 
   const clientId = getClientId();
   const clientSecret = getClientSecret();
+  const redirectUri = getRedirectUri();
+
+  const tokenBody: Record<string, string> = {
+    client_id: clientId,
+    client_secret: clientSecret,
+    code,
+  };
+  if (redirectUri) {
+    tokenBody.redirect_uri = redirectUri;
+  }
 
   const response = await api.fetch(GITHUB_TOKEN_URL, {
     method: "POST",
@@ -59,11 +116,7 @@ export async function exchangeCodeForToken(
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify({
-      client_id: clientId,
-      client_secret: clientSecret,
-      code,
-    }),
+    body: JSON.stringify(tokenBody),
   });
 
   if (!response.ok) {

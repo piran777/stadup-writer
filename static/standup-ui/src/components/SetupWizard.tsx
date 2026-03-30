@@ -29,6 +29,7 @@ const HOURS = Array.from({ length: 13 }, (_, i) => i + 6);
 
 function SetupWizard({ onComplete, onSave }: Props) {
   const [step, setStep] = useState(0);
+  const [webhookType, setWebhookType] = useState<"slack" | "teams">("slack");
   const [webhookUrl, setWebhookUrl] = useState("");
   const [timezone, setTimezone] = useState("America/New_York");
   const [postingHour, setPostingHour] = useState(9);
@@ -42,8 +43,9 @@ function SetupWizard({ onComplete, onSave }: Props) {
     setTesting(true);
     setTestResult(null);
     try {
+      const resolver = webhookType === "slack" ? "testWebhook" : "testTeamsWebhook";
       const result = await invoke<{ ok: boolean; error?: string }>(
-        "testWebhook",
+        resolver,
         { webhookUrl }
       );
       setTestResult(result);
@@ -54,8 +56,13 @@ function SetupWizard({ onComplete, onSave }: Props) {
   };
 
   const handleFinish = async () => {
+    const webhookPayload =
+      webhookType === "slack"
+        ? { slackWebhookUrl: webhookUrl }
+        : { teamsWebhookUrl: webhookUrl };
+
     await onSave({
-      slackWebhookUrl: webhookUrl,
+      ...webhookPayload,
       timezone,
       postingHour,
       enabled: true,
@@ -102,18 +109,64 @@ function SetupWizard({ onComplete, onSave }: Props) {
         <div className="wizard-step">
           <h3>Messaging Webhook</h3>
           <p>
-            Paste a Slack Incoming Webhook URL to start. You can add Microsoft
-            Teams later in Settings.{" "}
-            <a
-              href="https://api.slack.com/messaging/webhooks"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              How to create a Slack webhook
-            </a>
+            Choose your messaging platform and paste a webhook URL.
+            You can add the other platform later in Settings.
           </p>
+
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <Button
+              appearance={webhookType === "slack" ? "primary" : "subtle"}
+              onClick={() => {
+                setWebhookType("slack");
+                setWebhookUrl("");
+                setTestResult(null);
+              }}
+            >
+              Slack
+            </Button>
+            <Button
+              appearance={webhookType === "teams" ? "primary" : "subtle"}
+              onClick={() => {
+                setWebhookType("teams");
+                setWebhookUrl("");
+                setTestResult(null);
+              }}
+            >
+              Microsoft Teams
+            </Button>
+          </div>
+
+          <p className="form-hint" style={{ marginBottom: 8 }}>
+            {webhookType === "slack" ? (
+              <a
+                href="https://api.slack.com/messaging/webhooks"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                How to create a Slack webhook
+              </a>
+            ) : (
+              <>
+                In Teams, go to channel settings &rarr; Connectors &rarr;
+                Incoming Webhook. Or use{" "}
+                <a
+                  href="https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Workflows (Power Automate)
+                </a>{" "}
+                for newer Teams.
+              </>
+            )}
+          </p>
+
           <Textfield
-            placeholder="https://hooks.slack.com/services/T.../B.../..."
+            placeholder={
+              webhookType === "slack"
+                ? "https://hooks.slack.com/services/T.../B.../..."
+                : "https://...webhook.office.com/..."
+            }
             value={webhookUrl}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               setWebhookUrl(e.target.value)
@@ -149,7 +202,9 @@ function SetupWizard({ onComplete, onSave }: Props) {
               >
                 <p>
                   {testResult.ok
-                    ? "Webhook is working! Check your Slack channel."
+                    ? `Webhook is working! Check your ${
+                        webhookType === "slack" ? "Slack" : "Teams"
+                      } channel.`
                     : `Failed: ${testResult.error}`}
                 </p>
               </SectionMessage>
