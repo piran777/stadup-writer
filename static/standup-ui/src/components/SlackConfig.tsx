@@ -11,6 +11,24 @@ type Props = {
 
 const WEBHOOK_PREFIX = "https://hooks.slack.com/";
 
+function formatSlackTestError(raw?: string): string {
+  const msg = (raw || "").trim();
+  const m = msg.match(/returned\s+(\d{3})/i);
+  const status = m ? Number(m[1]) : undefined;
+
+  if (status === 401 || status === 403) {
+    return "Slack rejected the request (401/403). Your workspace admin may block incoming webhooks or app installs. Ask an admin to allow incoming webhooks (or approve the app), or use Copy in Preview.";
+  }
+  if (status === 404) {
+    return "Slack returned 404. This webhook may be disabled, revoked, or the URL is wrong. Create a new Incoming Webhook and try again.";
+  }
+  if (/timeout|timed out|ETIMEDOUT|ECONNRESET|ENOTFOUND/i.test(msg)) {
+    return "Network error testing this webhook. Your network/firewall may block outbound requests to Slack. Try again on a different network or ask IT to allow access to hooks.slack.com.";
+  }
+
+  return msg ? `Failed: ${msg}` : "Failed to test webhook. Please verify the URL and try again.";
+}
+
 function SlackConfig({ webhookUrl, onChange }: Props) {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
@@ -53,6 +71,10 @@ function SlackConfig({ webhookUrl, onChange }: Props) {
         </a>{" "}
         &rarr; Incoming Webhooks &rarr; Add to channel.
       </p>
+      <p className="form-hint" style={{ marginTop: 6 }}>
+        Note: Some organizations restrict incoming webhooks. If you can’t create
+        one, ask your Slack admin—or use Copy in the Preview tab.
+      </p>
 
       <div className="inline-row">
         <div className="flex-1">
@@ -88,7 +110,7 @@ function SlackConfig({ webhookUrl, onChange }: Props) {
             <p>
               {testResult.ok
                 ? "Webhook works! Check your Slack channel."
-                : `Failed: ${testResult.error}`}
+                : formatSlackTestError(testResult.error)}
             </p>
           </SectionMessage>
         </div>

@@ -10,6 +10,24 @@ type Props = {
   onChange: (url: string) => void;
 };
 
+function formatTeamsTestError(raw?: string): string {
+  const msg = (raw || "").trim();
+  const m = msg.match(/returned\s+(\d{3})/i);
+  const status = m ? Number(m[1]) : undefined;
+
+  if (status === 401 || status === 403) {
+    return "Teams rejected the request (401/403). Your organization may block Incoming Webhooks/Connectors or Workflows. Ask a Teams admin to enable/allow it, or use Copy in Preview.";
+  }
+  if (status === 404) {
+    return "Teams returned 404. This webhook may be disabled/revoked or the URL is wrong. Create a new Incoming Webhook (or Workflow) and try again.";
+  }
+  if (/timeout|timed out|ETIMEDOUT|ECONNRESET|ENOTFOUND/i.test(msg)) {
+    return "Network error testing this webhook. Your network/firewall may block outbound requests to Teams. Try again on a different network or ask IT to allow access to *.webhook.office.com.";
+  }
+
+  return msg ? `Failed: ${msg}` : "Failed to test webhook. Please verify the URL and try again.";
+}
+
 function TeamsConfig({ webhookUrl, onChange }: Props) {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
@@ -53,6 +71,11 @@ function TeamsConfig({ webhookUrl, onChange }: Props) {
         </a>{" "}
         for newer Teams.
       </p>
+      <p className="form-hint" style={{ marginTop: 6 }}>
+        Note: Some organizations disable Incoming Webhooks/Connectors. If you
+        can’t create one, ask your Teams admin or use a Workflow (Power
+        Automate). You can always use Copy in Preview as a fallback.
+      </p>
 
       <div className="inline-row">
         <div className="flex-1">
@@ -88,7 +111,7 @@ function TeamsConfig({ webhookUrl, onChange }: Props) {
             <p>
               {testResult.ok
                 ? "Webhook works! Check your Teams channel."
-                : `Failed: ${testResult.error}`}
+                : formatTeamsTestError(testResult.error)}
             </p>
           </SectionMessage>
         </div>
