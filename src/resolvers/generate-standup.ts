@@ -1,6 +1,7 @@
 import kvs from "@forge/kvs";
 import { fetchUserActivity } from "../services/jira-activity";
 import { fetchGitHubActivity } from "../services/github-activity";
+import { fetchUserDisplayName } from "../services/jira-user";
 import { generateStandup } from "../services/openai";
 import { postToSlack } from "../services/slack";
 import { postToTeams, isValidTeamsWebhookUrl } from "../services/teams";
@@ -18,7 +19,7 @@ export async function handleGenerateStandup(req: any) {
       | UserConfig
       | undefined;
 
-    const [activity, githubActivity] = await Promise.all([
+    const [activity, githubActivity, displayName] = await Promise.all([
       fetchUserActivity(accountId, config?.projects),
       config?.githubUsername && config?.githubToken
         ? fetchGitHubActivity(config.githubUsername, config.githubToken, {
@@ -26,6 +27,7 @@ export async function handleGenerateStandup(req: any) {
             orgOnly: config.githubOrgOnly,
           })
         : Promise.resolve<GitHubActivity>({ commits: [], pullRequests: [] }),
+      fetchUserDisplayName(accountId),
     ]);
 
     const standup = await generateStandup(
@@ -49,10 +51,10 @@ export async function handleGenerateStandup(req: any) {
         slackResult = { ok: false, error: "No webhook URLs configured. Go to Settings to add Slack or Teams." };
       } else {
         if (hasSlack) {
-          slackResult = await postToSlack(config!.slackWebhookUrl, fullMessage);
+          slackResult = await postToSlack(config!.slackWebhookUrl, fullMessage, { displayName });
         }
         if (hasTeams) {
-          teamsResult = await postToTeams(config!.teamsWebhookUrl!, fullMessage);
+          teamsResult = await postToTeams(config!.teamsWebhookUrl!, fullMessage, { displayName });
         }
       }
     }
@@ -103,19 +105,20 @@ export async function handleSendEditedStandup(req: any) {
   }
 
   try {
-    const config = (await kvs.get(`config:${accountId}`)) as
-      | UserConfig
-      | undefined;
+    const [config, displayName] = await Promise.all([
+      kvs.get(`config:${accountId}`) as Promise<UserConfig | undefined>,
+      fetchUserDisplayName(accountId),
+    ]);
 
     const message = truncateSlackMessage(editedText);
     const results: { slack?: { ok: boolean; error?: string }; teams?: { ok: boolean; error?: string } } = {};
 
     if ((target === "all" || target === "slack") && config?.slackWebhookUrl && isValidWebhookUrl(config.slackWebhookUrl)) {
-      results.slack = await postToSlack(config.slackWebhookUrl, message);
+      results.slack = await postToSlack(config.slackWebhookUrl, message, { displayName });
     }
 
     if ((target === "all" || target === "teams") && config?.teamsWebhookUrl && isValidTeamsWebhookUrl(config.teamsWebhookUrl)) {
-      results.teams = await postToTeams(config.teamsWebhookUrl, message);
+      results.teams = await postToTeams(config.teamsWebhookUrl, message, { displayName });
     }
 
     if (!results.slack && !results.teams) {

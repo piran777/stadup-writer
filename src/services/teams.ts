@@ -13,14 +13,15 @@ export function isValidTeamsWebhookUrl(url: string): boolean {
 
 export async function postToTeams(
   webhookUrl: string,
-  standup: string
+  standup: string,
+  options?: { displayName?: string }
 ): Promise<{ ok: boolean; error?: string }> {
   if (!webhookUrl || !isValidTeamsWebhookUrl(webhookUrl)) {
     return { ok: false, error: "Invalid Teams webhook URL" };
   }
 
   try {
-    const card = buildAdaptiveCard(standup);
+    const card = buildAdaptiveCard(standup, options?.displayName);
 
     const response = await api.fetch(webhookUrl, {
       method: "POST",
@@ -48,13 +49,23 @@ export async function testTeamsWebhook(
   );
 }
 
-function buildAdaptiveCard(standup: string): object {
+function buildAdaptiveCard(standup: string, displayName?: string): object {
   const sections = parseStandupSections(standup);
+
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
+
+  const title = displayName
+    ? `${displayName}'s Standup — ${today}`
+    : "Daily Standup";
 
   const bodyBlocks: any[] = [
     {
       type: "TextBlock",
-      text: "Daily Standup",
+      text: title,
       weight: "Bolder",
       size: "Medium",
       wrap: true,

@@ -1,6 +1,7 @@
 import kvs, { WhereConditions } from "@forge/kvs";
 import { fetchUserActivity } from "../services/jira-activity";
 import { fetchGitHubActivity } from "../services/github-activity";
+import { fetchUserDisplayName } from "../services/jira-user";
 import { generateStandup } from "../services/openai";
 import { postToSlack } from "../services/slack";
 import { postToTeams, isValidTeamsWebhookUrl } from "../services/teams";
@@ -77,7 +78,7 @@ async function processUser(
     ? getWeeklyLookbackHours(config.timezone, config.workDays, config.skipWeekends)
     : getActivityLookbackHours(config.timezone, config.workDays, config.skipWeekends);
 
-  const [activity, githubActivity] = await Promise.all([
+  const [activity, githubActivity, displayName] = await Promise.all([
     fetchUserActivity(accountId, config.projects, lookbackHours),
     config.githubUsername && config.githubToken
       ? fetchGitHubActivity(config.githubUsername, config.githubToken, {
@@ -85,6 +86,7 @@ async function processUser(
           orgOnly: config.githubOrgOnly,
         }, lookbackHours)
       : Promise.resolve<GitHubActivity>({ commits: [], pullRequests: [] }),
+    fetchUserDisplayName(accountId),
   ]);
 
   const standup = await generateStandup(
@@ -103,7 +105,7 @@ async function processUser(
   let teamsOk = false;
 
   if (hasSlack) {
-    const slackResult = await postToSlack(config.slackWebhookUrl, message);
+    const slackResult = await postToSlack(config.slackWebhookUrl, message, { displayName });
     slackOk = slackResult.ok;
     if (!slackOk) {
       logger.error("Slack post failed", { accountId, phase: "slack", error: slackResult.error });
@@ -111,7 +113,7 @@ async function processUser(
   }
 
   if (hasTeams) {
-    const teamsResult = await postToTeams(config.teamsWebhookUrl!, message);
+    const teamsResult = await postToTeams(config.teamsWebhookUrl!, message, { displayName });
     teamsOk = teamsResult.ok;
     if (!teamsOk) {
       logger.error("Teams post failed", { accountId, phase: "teams", error: teamsResult.error });

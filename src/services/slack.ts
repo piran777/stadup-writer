@@ -2,18 +2,31 @@ import api from "@forge/api";
 
 export async function postToSlack(
   webhookUrl: string,
-  standup: string
+  standup: string,
+  options?: { displayName?: string }
 ): Promise<{ ok: boolean; error?: string }> {
   if (!webhookUrl || !webhookUrl.startsWith("https://hooks.slack.com/")) {
     return { ok: false, error: "Invalid Slack webhook URL" };
   }
 
   try {
+    const displayName = options?.displayName;
+    let text = standup;
+
+    if (displayName) {
+      const today = new Date().toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      });
+      text = `*${displayName}'s Standup* — ${today}\n\n${standup}`;
+    }
+
     const response = await api.fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        text: standup,
+        text,
         unfurl_links: false,
       }),
     });
@@ -34,6 +47,6 @@ export async function testSlackWebhook(
 ): Promise<{ ok: boolean; error?: string }> {
   return postToSlack(
     webhookUrl,
-    "🔔 *Auto Standup Bot* -- Test message! Your webhook is working correctly."
+    "🔔 *Auto Standup Bot* — Test message! Your webhook is working correctly."
   );
 }
