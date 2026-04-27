@@ -44,14 +44,20 @@ export async function handleGenerateStandup(req: any) {
     let teamsResult: { ok: boolean; error?: string } | undefined;
 
     if (sendToSlack) {
-      const hasSlack = config?.slackWebhookUrl && isValidWebhookUrl(config.slackWebhookUrl);
+      const hasSlackWebhook = config?.slackWebhookUrl && isValidWebhookUrl(config.slackWebhookUrl);
+      const hasSlackOAuth = !!(config?.slackBotToken && config?.slackChannelId);
+      const hasSlack = hasSlackWebhook || hasSlackOAuth;
       const hasTeams = config?.teamsWebhookUrl && isValidTeamsWebhookUrl(config.teamsWebhookUrl);
 
       if (!hasSlack && !hasTeams) {
-        slackResult = { ok: false, error: "No webhook URLs configured. Go to Settings to add Slack or Teams." };
+        slackResult = { ok: false, error: "No Slack or Teams connection configured. Go to Settings." };
       } else {
         if (hasSlack) {
-          slackResult = await postToSlack(config!.slackWebhookUrl, fullMessage, { displayName });
+          slackResult = await postToSlack(config!.slackWebhookUrl, fullMessage, {
+            displayName,
+            botToken: config!.slackBotToken,
+            channelId: config!.slackChannelId,
+          });
         }
         if (hasTeams) {
           teamsResult = await postToTeams(config!.teamsWebhookUrl!, fullMessage, { displayName });
@@ -114,8 +120,14 @@ export async function handleSendEditedStandup(req: any) {
     const message = truncateSlackMessage(editedText);
     const results: { slack?: { ok: boolean; error?: string }; teams?: { ok: boolean; error?: string } } = {};
 
-    if ((target === "all" || target === "slack") && config?.slackWebhookUrl && isValidWebhookUrl(config.slackWebhookUrl)) {
-      results.slack = await postToSlack(config.slackWebhookUrl, message, { displayName });
+    const hasSlackWebhook = config?.slackWebhookUrl && isValidWebhookUrl(config.slackWebhookUrl);
+    const hasSlackOAuth = !!(config?.slackBotToken && config?.slackChannelId);
+    if ((target === "all" || target === "slack") && (hasSlackWebhook || hasSlackOAuth)) {
+      results.slack = await postToSlack(config!.slackWebhookUrl, message, {
+        displayName,
+        botToken: config!.slackBotToken,
+        channelId: config!.slackChannelId,
+      });
     }
 
     if ((target === "all" || target === "teams") && config?.teamsWebhookUrl && isValidTeamsWebhookUrl(config.teamsWebhookUrl)) {

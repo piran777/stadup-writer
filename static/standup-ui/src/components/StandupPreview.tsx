@@ -22,7 +22,9 @@ function StandupPreview({ config }: Props) {
   } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const hasSlack = isValidSlackWebhookUrl(config?.slackWebhookUrl ?? "");
+  const hasSlackWebhook = isValidSlackWebhookUrl(config?.slackWebhookUrl ?? "");
+  const hasSlackOAuth = !!(config?.slackConnected && config?.slackChannelId);
+  const hasSlack = hasSlackWebhook || hasSlackOAuth;
   const hasTeams = isValidTeamsWebhookUrl(config?.teamsWebhookUrl ?? "");
   const hasAnyChannel = hasSlack || hasTeams;
 

@@ -14,6 +14,8 @@ modules:
   webtrigger:
     - key: github-oauth-callback
       function: github-callback-handler
+    - key: slack-oauth-callback
+      function: slack-callback-handler
 
   function:
     - key: resolver
@@ -22,6 +24,8 @@ modules:
       handler: index.scheduledHandler
     - key: github-callback-handler
       handler: index.githubOAuthCallback
+    - key: slack-callback-handler
+      handler: index.slackOAuthCallback
 
 resources:
   - key: main
@@ -42,6 +46,7 @@ permissions:
       backend:
         - address: api.openai.com
         - address: hooks.slack.com
+        - address: slack.com
         - address: api.github.com
         - address: github.com
         - address: "*.webhook.office.com"

@@ -3,6 +3,7 @@ import Button from "@atlaskit/button/standard-button";
 import Textfield from "@atlaskit/textfield";
 import { invoke } from "@forge/bridge";
 import SectionMessage from "@atlaskit/section-message";
+import SlackConnect from "./SlackConnect";
 
 type Props = {
   onComplete: () => void;
@@ -29,8 +30,9 @@ const HOURS = Array.from({ length: 13 }, (_, i) => i + 6);
 
 function SetupWizard({ onComplete, onSave }: Props) {
   const [step, setStep] = useState(0);
-  const [webhookType, setWebhookType] = useState<"slack" | "teams">("slack");
-  const [webhookUrl, setWebhookUrl] = useState("");
+  const [platform, setPlatform] = useState<"slack" | "teams">("slack");
+  const [slackConnected, setSlackConnected] = useState(false);
+  const [teamsWebhookUrl, setTeamsWebhookUrl] = useState("");
   const [timezone, setTimezone] = useState("America/New_York");
   const [postingHour, setPostingHour] = useState(9);
   const [testResult, setTestResult] = useState<{
@@ -39,14 +41,13 @@ function SetupWizard({ onComplete, onSave }: Props) {
   } | null>(null);
   const [testing, setTesting] = useState(false);
 
-  const handleTestWebhook = async () => {
+  const handleTestTeamsWebhook = async () => {
     setTesting(true);
     setTestResult(null);
     try {
-      const resolver = webhookType === "slack" ? "testWebhook" : "testTeamsWebhook";
       const result = await invoke<{ ok: boolean; error?: string }>(
-        resolver,
-        { webhookUrl }
+        "testTeamsWebhook",
+        { webhookUrl: teamsWebhookUrl }
       );
       setTestResult(result);
     } catch (err: any) {
@@ -55,14 +56,11 @@ function SetupWizard({ onComplete, onSave }: Props) {
     setTesting(false);
   };
 
-  const handleFinish = async () => {
-    const webhookPayload =
-      webhookType === "slack"
-        ? { slackWebhookUrl: webhookUrl }
-        : { teamsWebhookUrl: webhookUrl };
+  const canProceed =
+    platform === "slack" ? slackConnected : !!teamsWebhookUrl;
 
-    await onSave({
-      ...webhookPayload,
+  const handleFinish = async () => {
+    const payload: Record<string, any> = {
       timezone,
       postingHour,
       enabled: true,
@@ -70,7 +68,13 @@ function SetupWizard({ onComplete, onSave }: Props) {
       projects: "all",
       format: "bullets",
       tone: "professional",
-    });
+    };
+
+    if (platform === "teams") {
+      payload.teamsWebhookUrl = teamsWebhookUrl;
+    }
+
+    await onSave(payload);
     onComplete();
   };
 
@@ -107,28 +111,23 @@ function SetupWizard({ onComplete, onSave }: Props) {
 
       {step === 0 && (
         <div className="wizard-step">
-          <h3>Messaging Webhook</h3>
-          <p>
-            Choose your messaging platform and paste a webhook URL.
-            You can add the other platform later in Settings.
-          </p>
+          <h3>Connect your messaging platform</h3>
+          <p>Choose Slack or Teams to receive your standup messages.</p>
 
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
             <Button
-              appearance={webhookType === "slack" ? "primary" : "subtle"}
+              appearance={platform === "slack" ? "primary" : "subtle"}
               onClick={() => {
-                setWebhookType("slack");
-                setWebhookUrl("");
+                setPlatform("slack");
                 setTestResult(null);
               }}
             >
               Slack
             </Button>
             <Button
-              appearance={webhookType === "teams" ? "primary" : "subtle"}
+              appearance={platform === "teams" ? "primary" : "subtle"}
               onClick={() => {
-                setWebhookType("teams");
-                setWebhookUrl("");
+                setPlatform("teams");
                 setTestResult(null);
               }}
             >
@@ -136,17 +135,15 @@ function SetupWizard({ onComplete, onSave }: Props) {
             </Button>
           </div>
 
-          <p className="form-hint" style={{ marginBottom: 8 }}>
-            {webhookType === "slack" ? (
-              <a
-                href="https://api.slack.com/messaging/webhooks"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                How to create a Slack webhook
-              </a>
-            ) : (
-              <>
+          {platform === "slack" ? (
+            <div>
+              <SlackConnect
+                onConnectionChange={() => setSlackConnected(true)}
+              />
+            </div>
+          ) : (
+            <div>
+              <p className="form-hint" style={{ marginBottom: 8 }}>
                 In Teams, go to channel settings &rarr; Connectors &rarr;
                 Incoming Webhook. Or use{" "}
                 <a
@@ -157,59 +154,52 @@ function SetupWizard({ onComplete, onSave }: Props) {
                   Workflows (Power Automate)
                 </a>{" "}
                 for newer Teams.
-              </>
-            )}
-          </p>
+              </p>
+              <Textfield
+                placeholder="https://...webhook.office.com/..."
+                value={teamsWebhookUrl}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setTeamsWebhookUrl(e.target.value)
+                }
+              />
+              <div style={{ marginTop: 8 }}>
+                <Button
+                  appearance="subtle"
+                  onClick={handleTestTeamsWebhook}
+                  isDisabled={!teamsWebhookUrl || testing}
+                >
+                  Test Webhook
+                </Button>
+              </div>
+              {testResult && (
+                <div style={{ marginTop: 12 }}>
+                  <SectionMessage
+                    appearance={testResult.ok ? "success" : "error"}
+                  >
+                    <p>
+                      {testResult.ok
+                        ? "Webhook is working! Check your Teams channel."
+                        : `Failed: ${testResult.error}`}
+                    </p>
+                  </SectionMessage>
+                </div>
+              )}
+            </div>
+          )}
 
-          <Textfield
-            placeholder={
-              webhookType === "slack"
-                ? "https://hooks.slack.com/services/T.../B.../..."
-                : "https://...webhook.office.com/..."
-            }
-            value={webhookUrl}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setWebhookUrl(e.target.value)
-            }
-          />
           <div className="wizard-actions">
-            <Button
-              appearance="subtle"
-              onClick={handleTestWebhook}
-              isDisabled={!webhookUrl || testing}
-            >
-              Test Webhook
-            </Button>
             <Button
               appearance="primary"
               onClick={() => setStep(1)}
-              isDisabled={!webhookUrl}
+              isDisabled={!canProceed}
             >
               Next
             </Button>
             <div style={{ flex: 1 }} />
-            <Button
-              appearance="subtle-link"
-              onClick={handleSkip}
-            >
+            <Button appearance="subtle-link" onClick={handleSkip}>
               Skip for now
             </Button>
           </div>
-          {testResult && (
-            <div style={{ marginTop: 12 }}>
-              <SectionMessage
-                appearance={testResult.ok ? "success" : "error"}
-              >
-                <p>
-                  {testResult.ok
-                    ? `Webhook is working! Check your ${
-                        webhookType === "slack" ? "Slack" : "Teams"
-                      } channel.`
-                    : `Failed: ${testResult.error}`}
-                </p>
-              </SectionMessage>
-            </div>
-          )}
         </div>
       )}
 

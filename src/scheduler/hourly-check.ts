@@ -52,10 +52,12 @@ async function processUser(
   if (!config.enabled) {
     return "skipped";
   }
-  const hasSlack = config.slackWebhookUrl && isValidWebhookUrl(config.slackWebhookUrl);
+  const hasSlackWebhook = config.slackWebhookUrl && isValidWebhookUrl(config.slackWebhookUrl);
+  const hasSlackOAuth = !!(config.slackBotToken && config.slackChannelId);
+  const hasSlack = hasSlackWebhook || hasSlackOAuth;
   const hasTeams = config.teamsWebhookUrl && isValidTeamsWebhookUrl(config.teamsWebhookUrl);
   if (!hasSlack && !hasTeams) {
-    logger.standupSkipped(accountId, "no valid webhook URLs");
+    logger.standupSkipped(accountId, "no valid webhook URLs or Slack connection");
     return "skipped";
   }
   if (!isPostingTime(config.timezone, config.postingHour)) {
@@ -105,7 +107,11 @@ async function processUser(
   let teamsOk = false;
 
   if (hasSlack) {
-    const slackResult = await postToSlack(config.slackWebhookUrl, message, { displayName });
+    const slackResult = await postToSlack(config.slackWebhookUrl, message, {
+      displayName,
+      botToken: config.slackBotToken,
+      channelId: config.slackChannelId,
+    });
     slackOk = slackResult.ok;
     if (!slackOk) {
       logger.error("Slack post failed", { accountId, phase: "slack", error: slackResult.error });

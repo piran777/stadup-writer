@@ -49,6 +49,10 @@ export type UserConfig = {
   enabled: boolean;
   slackWebhookUrl: string;
   teamsWebhookUrl?: string;
+  slackBotToken?: string;
+  slackChannelId?: string;
+  slackTeamName?: string;
+  slackConnected?: boolean;
   timezone: string;
   postingHour: number;
   skipWeekends: boolean;

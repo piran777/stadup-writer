@@ -7,8 +7,16 @@ import {
   handleGetGitHubStatus,
   handleDisconnectGitHub,
 } from "./resolvers/github-auth";
+import {
+  handleGetSlackAuthUrl,
+  handleGetSlackStatus,
+  handleGetSlackChannels,
+  handleSetSlackChannel,
+  handleDisconnectSlack,
+} from "./resolvers/slack-auth";
 import { runHourlyCheck } from "./scheduler/hourly-check";
 import { exchangeCodeForToken } from "./services/github-oauth";
+import { exchangeSlackCodeForToken } from "./services/slack-oauth";
 import { logger } from "./utils/logger";
 
 const resolver = new Resolver();
@@ -23,6 +31,11 @@ resolver.define("sendEditedStandup", handleSendEditedStandup);
 resolver.define("getGitHubAuthUrl", handleGetGitHubAuthUrl);
 resolver.define("getGitHubStatus", handleGetGitHubStatus);
 resolver.define("disconnectGitHub", handleDisconnectGitHub);
+resolver.define("getSlackAuthUrl", handleGetSlackAuthUrl);
+resolver.define("getSlackStatus", handleGetSlackStatus);
+resolver.define("getSlackChannels", handleGetSlackChannels);
+resolver.define("setSlackChannel", handleSetSlackChannel);
+resolver.define("disconnectSlack", handleDisconnectSlack);
 
 export const handler = resolver.getDefinitions();
 
@@ -52,7 +65,7 @@ export const githubOAuthCallback = async (req: any) => {
     return {
       statusCode: 200,
       headers: { "Content-Type": ["text/html"] },
-      body: successPage(username),
+      body: githubSuccessPage(username),
     };
   } catch (error: any) {
     logger.error("GitHub OAuth callback failed", {
@@ -67,7 +80,57 @@ export const githubOAuthCallback = async (req: any) => {
   }
 };
 
-function successPage(username: string): string {
+export const slackOAuthCallback = async (req: any) => {
+  try {
+    const params = new URLSearchParams(req.queryParameters || {});
+    let code = params.get("code") || req.queryParameters?.code;
+    let state = params.get("state") || req.queryParameters?.state;
+
+    if (Array.isArray(code)) code = code[0];
+    if (Array.isArray(state)) state = state[0];
+
+    const error = params.get("error") || req.queryParameters?.error;
+    if (error) {
+      return {
+        statusCode: 200,
+        headers: { "Content-Type": ["text/html"] },
+        body: errorPage(
+          error === "access_denied"
+            ? "You cancelled the Slack authorization. Please try again."
+            : `Slack error: ${error}`
+        ),
+      };
+    }
+
+    if (!code || !state) {
+      return {
+        statusCode: 400,
+        headers: { "Content-Type": ["text/html"] },
+        body: errorPage("Missing authorization code. Please try connecting again."),
+      };
+    }
+
+    const { teamName } = await exchangeSlackCodeForToken(code, state);
+
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": ["text/html"] },
+      body: slackSuccessPage(teamName),
+    };
+  } catch (error: any) {
+    logger.error("Slack OAuth callback failed", {
+      phase: "slack-oauth",
+      error: error.message,
+    });
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": ["text/html"] },
+      body: errorPage(error.message),
+    };
+  }
+};
+
+function githubSuccessPage(username: string): string {
   return `<!DOCTYPE html>
 <html><head><title>GitHub Connected</title>
 <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#f4f5f7}
@@ -77,6 +140,19 @@ h2{color:#36B37E;margin:0 0 8px} p{color:#6B778C;margin:0 0 16px}
 <body><div class="card"><h2>GitHub Connected!</h2>
 <p>Signed in as <span class="username">${username}</span></p>
 <p>You can close this window and return to Jira.</p>
+<script>setTimeout(()=>window.close(),3000)</script></div></body></html>`;
+}
+
+function slackSuccessPage(teamName: string): string {
+  return `<!DOCTYPE html>
+<html><head><title>Slack Connected</title>
+<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#f4f5f7}
+.card{background:#fff;border-radius:12px;padding:40px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.1);max-width:400px}
+h2{color:#36B37E;margin:0 0 8px} p{color:#6B778C;margin:0 0 16px}
+.team{background:#E3FCEF;color:#006644;padding:4px 12px;border-radius:4px;font-weight:600;display:inline-block}</style></head>
+<body><div class="card"><h2>Slack Connected!</h2>
+<p>Connected to <span class="team">${teamName}</span></p>
+<p>You can close this window and return to Jira to select a channel.</p>
 <script>setTimeout(()=>window.close(),3000)</script></div></body></html>`;
 }
 

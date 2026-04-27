@@ -130,6 +130,7 @@ function SettingsForm({ config, onSave }: Props) {
             <SlackConfig
               webhookUrl={form.slackWebhookUrl}
               onChange={(url) => handleChange("slackWebhookUrl", url)}
+              onConnectionChange={() => {}}
             />
           </div>
 

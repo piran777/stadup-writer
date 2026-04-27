@@ -12,6 +12,10 @@ type UserConfig = {
   enabled: boolean;
   slackWebhookUrl: string;
   teamsWebhookUrl?: string;
+  slackBotToken?: string;
+  slackChannelId?: string;
+  slackTeamName?: string;
+  slackConnected?: boolean;
   timezone: string;
   postingHour: number;
   skipWeekends: boolean;
@@ -48,7 +52,8 @@ function App() {
       setLoading(true);
       const settings = await invoke<UserConfig>("getSettings");
       setConfig(settings);
-      if (!settings.slackWebhookUrl && !settings.teamsWebhookUrl) {
+      const hasSlack = settings.slackWebhookUrl || settings.slackConnected;
+      if (!hasSlack && !settings.teamsWebhookUrl) {
         setShowWizard(true);
       }
     } catch (err: any) {

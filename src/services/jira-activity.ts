@@ -11,7 +11,13 @@ export async function fetchUserActivity(
   lookbackHours: number = 24
 ): Promise<UserActivity> {
   try {
-    const issues = await searchRecentIssues(accountId, projectKeys, lookbackHours);
+    let issues = await searchRecentIssues(accountId, projectKeys, lookbackHours);
+
+    if (issues.length === 0) {
+      logger.info("Zero issues on first attempt, retrying after delay", { phase: "jira", accountId });
+      await new Promise((r) => setTimeout(r, 1500));
+      issues = await searchRecentIssues(accountId, projectKeys, lookbackHours);
+    }
 
     if (issues.length === 0) {
       return emptyActivity();
@@ -49,20 +55,34 @@ async function searchRecentIssues(
 
   logger.info("Jira search executing", { phase: "jira", jql, accountId });
 
+  const searchBody = JSON.stringify({
+    jql,
+    maxResults: MAX_ISSUES,
+    fields: ["summary", "status", "project", "comment"],
+  });
+
   let response = await api
     .asUser()
     .requestJira(route`/rest/api/3/search/jql`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jql,
-        maxResults: MAX_ISSUES,
-        fields: ["summary", "status", "project", "comment"],
-      }),
+      body: searchBody,
     });
 
   if (!response.ok) {
-    logger.warn("asUser search failed, trying asApp", { phase: "jira", status: response.status });
+    logger.warn("asUser search failed, retrying once", { phase: "jira", status: response.status });
+    await new Promise((r) => setTimeout(r, 1000));
+    response = await api
+      .asUser()
+      .requestJira(route`/rest/api/3/search/jql`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: searchBody,
+      });
+  }
+
+  if (!response.ok) {
+    logger.warn("asUser search failed twice, trying asApp", { phase: "jira", status: response.status });
     const appJql = `assignee = "${accountId}" AND updated >= -1d ORDER BY updated DESC`;
     response = await api
       .asApp()
