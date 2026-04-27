@@ -75,6 +75,7 @@ export async function handleGenerateStandup(req: any) {
 
     return {
       standup: fullMessage,
+      displayName,
       activity,
       slackResult,
       teamsResult,

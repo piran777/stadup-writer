@@ -12,6 +12,7 @@ type Props = {
 
 function StandupPreview({ config }: Props) {
   const [standup, setStandup] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [edited, setEdited] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -31,10 +32,11 @@ function StandupPreview({ config }: Props) {
     setEdited(false);
     setSendResult(null);
     try {
-      const result = await invoke<{ standup: string }>("generateStandup", {
+      const result = await invoke<{ standup: string; displayName?: string }>("generateStandup", {
         sendToSlack: false,
       });
       setStandup(result.standup);
+      setDisplayName(result.displayName || null);
     } catch (err: any) {
       setStandup(`Error: ${err.message}`);
     }
@@ -163,7 +165,11 @@ function StandupPreview({ config }: Props) {
       {standup && (
         <div className="preview-message">
           <div className="preview-message-header">
-            <span>Standup Preview</span>
+            <span>
+              {displayName
+                ? `${displayName}'s Standup — ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}`
+                : "Standup Preview"}
+            </span>
             {edited && <span style={{ fontStyle: "italic" }}>Modified</span>}
           </div>
           <textarea
