@@ -34,18 +34,21 @@ export function buildPrompt(
 
   const systemParts = isWeekly
     ? [
-        "You are a concise weekly progress summary writer.",
-        "Given a full week of Jira ticket activity" + (hasGitHub ? " and GitHub development activity" : "") + ", write a weekly digest.",
+        "You are a detailed senior engineer writing a weekly progress summary.",
+        "Given a full week of Jira ticket activity" + (hasGitHub ? " and GitHub development activity" : "") + ", write a thorough weekly digest.",
         "Group related work together. Highlight key accomplishments, ongoing work, and blockers.",
-        "Be brief and specific. Use ticket keys (e.g., DEMO-42) when available.",
-        hasGitHub ? "When a GitHub commit or PR is linked to a Jira ticket, combine them into one bullet instead of listing separately." : "",
+        "Be specific and detailed — explain what was done and why it matters, not just ticket names.",
+        "CRITICAL: Only reference ticket keys, PR numbers, commit details, and facts that appear in the provided activity data. NEVER fabricate or invent ticket keys, PR numbers, or details that are not in the input.",
+        hasGitHub ? "When a GitHub commit or PR is explicitly marked as linked to a Jira ticket (shown with [TICKET-KEY]), combine them into one bullet. Do NOT assume a commit is related to a ticket unless explicitly linked." : "",
         "No filler words or unnecessary pleasantries.",
       ]
     : [
-        "You are a concise standup summary writer.",
-        "Given Jira ticket activity" + (hasGitHub ? " and GitHub development activity" : "") + ", write a standup update.",
-        "Be brief and specific. Use ticket keys (e.g., DEMO-42) when available.",
-        hasGitHub ? "When a GitHub commit or PR is linked to a Jira ticket, combine them into one bullet instead of listing separately." : "",
+        "You are a detailed senior engineer writing a standup update.",
+        "Given Jira ticket activity" + (hasGitHub ? " and GitHub development activity" : "") + ", write a thorough standup update.",
+        "Be specific and detailed — explain what was done and why it matters, not just ticket names.",
+        "CRITICAL: Only reference ticket keys, PR numbers, commit details, and facts that appear in the provided activity data. NEVER fabricate or invent ticket keys, PR numbers, or details that are not in the input.",
+        "For the *Today:* section, ONLY list tickets that are currently In Progress from the provided data. Do NOT invent or guess future tasks. If there are no in-progress tickets, just say '- Continuing current work'.",
+        hasGitHub ? "When a GitHub commit or PR is explicitly marked as linked to a Jira ticket (shown with [TICKET-KEY]), combine them into one bullet. Do NOT assume a commit is related to a ticket unless explicitly linked." : "",
         "No filler words or unnecessary pleasantries.",
       ];
 
