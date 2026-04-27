@@ -2,6 +2,8 @@
 
 AI-powered standups from your Jira and GitHub activity, delivered to Slack or Microsoft Teams.
 
+**[Install from the Atlassian Marketplace](https://marketplace.atlassian.com/apps/542311656/auto-standup-bot?tab=overview)**
+
 Auto Standup Bot is an [Atlassian Forge](https://developer.atlassian.com/platform/forge/) app for Jira Cloud. It reads your recent Jira activity (and optional GitHub commits/PRs), generates a clean standup using AI, and posts it to your team's Slack or Teams channel — on a schedule or on demand.
 
 ---

@@ -77,7 +77,8 @@ function SettingsForm({ config, onSave }: Props) {
     try {
       setSaveError(null);
       setSaving(true);
-      await onSave(form);
+      const { slackBotToken, slackChannelId, slackTeamName, slackConnected, ...settingsOnly } = form as any;
+      await onSave(settingsOnly);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
