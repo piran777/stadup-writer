@@ -4,6 +4,10 @@ import { logger } from "../utils/logger";
 
 const MAX_ISSUES = 50;
 const MAX_CHANGELOG_ISSUES = 20;
+const MAX_COMPLETED = 5;
+const MAX_IN_PROGRESS = 8;
+const MAX_COMMENTED = 5;
+const MAX_BLOCKED = 5;
 
 export async function fetchUserActivity(
   accountId: string,
@@ -181,37 +185,35 @@ async function buildActivityFromIssues(
     const summary = issue.fields?.summary || key;
     const currentStatus = issue.fields?.status?.name?.toLowerCase() || "";
 
-    logger.info("Processing issue", {
-      phase: "jira",
-      key,
-      summary,
-      currentStatus,
-      rawStatusName: issue.fields?.status?.name,
-      statusCategory: issue.fields?.status?.statusCategory?.name,
-    });
-
     const histories = await fetchIssueChangelog(key);
 
-    logger.info("Changelog fetched", {
-      phase: "jira",
-      key,
-      historyCount: histories.length,
-    });
+    const userHistories = histories.filter(
+      (h: any) => h.author?.accountId === accountId && isWithin24Hours(h.created)
+    );
 
-    const statusTransitions = histories
-      .filter(
-        (h: any) =>
-          h.author?.accountId === accountId && isWithin24Hours(h.created)
-      )
-      .flatMap((h: any) =>
-        (h.items || []).filter((item: any) => item.field === "status")
-      );
+    const statusTransitions = userHistories.flatMap((h: any) =>
+      (h.items || []).filter((item: any) => item.field === "status")
+    );
+
+    const userMadeAnyChange = userHistories.length > 0;
+
+    const comments = issue.fields?.comment?.comments || [];
+    const recentUserComments = comments.filter(
+      (c: any) => c.author?.accountId === accountId && isWithin24Hours(c.created)
+    );
+
+    const userHasSignal = userMadeAnyChange || recentUserComments.length > 0;
+
+    if (!userHasSignal) {
+      logger.info("Skipping issue — no user activity signal", { phase: "jira", key });
+      continue;
+    }
 
     let hadCompletionTransition = false;
 
     for (const transition of statusTransitions) {
       const to = transition.toString?.toLowerCase() || "";
-      if (isDoneStatus(to)) {
+      if (isDoneStatus(to) && activity.completed.length < MAX_COMPLETED) {
         activity.completed.push({
           key,
           summary,
@@ -222,19 +224,14 @@ async function buildActivityFromIssues(
       }
     }
 
-    if (!hadCompletionTransition && isBlockedStatus(currentStatus)) {
+    if (!hadCompletionTransition && isBlockedStatus(currentStatus) && activity.blocked.length < MAX_BLOCKED) {
       activity.blocked.push({ key, summary });
-    } else if (!hadCompletionTransition && !isDoneStatus(currentStatus)) {
+    } else if (!hadCompletionTransition && !isDoneStatus(currentStatus) && activity.inProgress.length < MAX_IN_PROGRESS) {
       activity.inProgress.push({ key, summary });
     }
 
-    const comments = issue.fields?.comment?.comments || [];
-    const recentUserComments = comments.filter(
-      (c: any) =>
-        c.author?.accountId === accountId && isWithin24Hours(c.created)
-    );
-
     for (const comment of recentUserComments) {
+      if (activity.commented.length >= MAX_COMMENTED) break;
       const body =
         typeof comment.body === "string"
           ? comment.body
@@ -245,25 +242,16 @@ async function buildActivityFromIssues(
         commentSnippet: body.slice(0, 120),
       });
     }
-
-    logger.info("Issue categorized", {
-      phase: "jira",
-      key,
-      completedCount: activity.completed.length,
-      inProgressCount: activity.inProgress.length,
-      blockedCount: activity.blocked.length,
-      commentedCount: activity.commented.length,
-    });
   }
 
   for (const issue of issues.slice(MAX_CHANGELOG_ISSUES)) {
     const currentStatus = issue.fields?.status?.name?.toLowerCase() || "";
-    if (isBlockedStatus(currentStatus)) {
+    if (isBlockedStatus(currentStatus) && activity.blocked.length < MAX_BLOCKED) {
       activity.blocked.push({
         key: issue.key,
         summary: issue.fields?.summary || issue.key,
       });
-    } else if (!isDoneStatus(currentStatus)) {
+    } else if (!isDoneStatus(currentStatus) && activity.inProgress.length < MAX_IN_PROGRESS) {
       activity.inProgress.push({
         key: issue.key,
         summary: issue.fields?.summary || issue.key,
