@@ -19,12 +19,23 @@ export async function handleGenerateStandup(req: any) {
       | UserConfig
       | undefined;
 
+    const hasGitHub = !!(config?.githubUsername && config?.githubToken);
+    logger.info("GitHub config check", {
+      phase: "generate",
+      accountId,
+      hasGitHub,
+      githubUsername: config?.githubUsername || "none",
+      hasToken: !!config?.githubToken,
+      orgs: config?.githubOrgs || [],
+      orgOnly: config?.githubOrgOnly ?? false,
+    });
+
     const [activity, githubActivity, displayName] = await Promise.all([
       fetchUserActivity(accountId, config?.projects),
-      config?.githubUsername && config?.githubToken
-        ? fetchGitHubActivity(config.githubUsername, config.githubToken, {
-            orgs: config.githubOrgs,
-            orgOnly: config.githubOrgOnly,
+      hasGitHub
+        ? fetchGitHubActivity(config!.githubUsername!, config!.githubToken!, {
+            orgs: config!.githubOrgs,
+            orgOnly: config!.githubOrgOnly,
           })
         : Promise.resolve<GitHubActivity>({ commits: [], pullRequests: [] }),
       fetchUserDisplayName(accountId),

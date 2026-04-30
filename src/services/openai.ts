@@ -22,7 +22,7 @@ export async function generateStandup(
 
   const prompt = buildPrompt(activity, format, tone, github, options);
 
-  const maxTokens = options?.isWeeklyDigest ? 600 : 300;
+  const maxTokens = options?.isWeeklyDigest ? 800 : 500;
 
   try {
     return await callOpenAI(prompt, maxTokens);

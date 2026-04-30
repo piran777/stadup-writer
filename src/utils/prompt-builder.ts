@@ -40,7 +40,7 @@ export function buildPrompt(
         "Be specific and detailed — explain what was done and why it matters, not just ticket names.",
         "CRITICAL: Only reference ticket keys, PR numbers, commit details, and facts that appear in the provided activity data. NEVER fabricate or invent ticket keys, PR numbers, or details that are not in the input.",
         "NOISE REDUCTION: Focus on meaningful progress. Prioritize status transitions and completed work over minor updates. If multiple tickets are part of the same feature or theme, group them into one concise bullet. Skip trivial or repetitive items.",
-        hasGitHub ? "When a GitHub commit or PR is explicitly marked as linked to a Jira ticket (shown with [TICKET-KEY]), combine them into one bullet. Do NOT assume a commit is related to a ticket unless explicitly linked." : "",
+        hasGitHub ? "IMPORTANT: Always include GitHub commits and PRs in the output. When a GitHub commit or PR is explicitly marked as linked to a Jira ticket (shown with [TICKET-KEY]), combine them into one bullet. Do NOT assume a commit is related to a ticket unless explicitly linked. Unlinked commits/PRs get their own bullet." : "",
         "No filler words or unnecessary pleasantries.",
       ]
     : [
@@ -50,7 +50,7 @@ export function buildPrompt(
         "CRITICAL: Only reference ticket keys, PR numbers, commit details, and facts that appear in the provided activity data. NEVER fabricate or invent ticket keys, PR numbers, or details that are not in the input.",
         "For the *Today:* section, ONLY list tickets that are currently In Progress from the provided data. Do NOT invent or guess future tasks. If there are no in-progress tickets, just say '- Continuing current work'.",
         "NOISE REDUCTION: Focus on meaningful progress. Prioritize status transitions and completed work over minor updates. If multiple tickets are part of the same feature or theme, group them into one concise bullet. Skip trivial or repetitive items.",
-        hasGitHub ? "When a GitHub commit or PR is explicitly marked as linked to a Jira ticket (shown with [TICKET-KEY]), combine them into one bullet. Do NOT assume a commit is related to a ticket unless explicitly linked." : "",
+        hasGitHub ? "IMPORTANT: Always include GitHub commits and PRs in the output. When a GitHub commit or PR is explicitly marked as linked to a Jira ticket (shown with [TICKET-KEY]), combine them into one bullet. Do NOT assume a commit is related to a ticket unless explicitly linked. Unlinked commits/PRs get their own bullet." : "",
         "No filler words or unnecessary pleasantries.",
       ];
 
@@ -117,7 +117,8 @@ export function buildPrompt(
     outputFormat = format === "prose"
       ? "Output as short paragraphs for Accomplishments, Ongoing Work, and Blockers/Risks."
       : [
-          "Output format:",
+          "Output format (include a blank line between each section):",
+          "",
           "*This Week's Accomplishments:*",
           "- bullet points",
           "",
@@ -134,7 +135,8 @@ export function buildPrompt(
     outputFormat = format === "prose"
       ? "Output as short paragraphs for Yesterday, Today, and Blockers."
       : [
-          "Output format:",
+          "Output format (include a blank line between each section):",
+          "",
           "*Yesterday:*",
           "- bullet points",
           "",
