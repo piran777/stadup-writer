@@ -18,7 +18,7 @@ type SlackChannel = {
 };
 
 type Props = {
-  onConnectionChange?: () => void;
+  onConnectionChange?: (connected: boolean) => void;
 };
 
 function SlackConnect({ onConnectionChange }: Props) {
@@ -94,11 +94,16 @@ function SlackConnect({ onConnectionChange }: Props) {
 
   const handleCheckConnection = async () => {
     setLoading(true);
-    await fetchStatus();
+    const result = await fetchStatus();
     setConnecting(false);
     setLoading(false);
-    await fetchChannels();
-    onConnectionChange?.();
+    if (result?.connected) {
+      await fetchChannels();
+      onConnectionChange?.(true);
+    } else {
+      setError("Slack connection not found. Please try authorizing again.");
+      onConnectionChange?.(false);
+    }
   };
 
   const handleDisconnect = async () => {
@@ -109,7 +114,7 @@ function SlackConnect({ onConnectionChange }: Props) {
       setStatus({ connected: false, teamName: null, channelId: null, channelName: null });
       setChannels([]);
       setSelectedChannel("");
-      onConnectionChange?.();
+      onConnectionChange?.(false);
     } catch (err: any) {
       setError(err.message);
     }
@@ -129,7 +134,7 @@ function SlackConnect({ onConnectionChange }: Props) {
         setStatus((prev) =>
           prev ? { ...prev, channelId: selectedChannel, channelName: ch?.name || null } : prev
         );
-        onConnectionChange?.();
+        onConnectionChange?.(true);
       } else {
         setError(result.error || "Failed to save channel");
       }

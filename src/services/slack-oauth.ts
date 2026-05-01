@@ -1,14 +1,20 @@
-import api from "@forge/api";
+import api, { webTrigger } from "@forge/api";
 import kvs from "@forge/kvs";
 import { logger } from "../utils/logger";
 
 const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
 const SLACK_TOKEN_URL = "https://slack.com/api/oauth.v2.access";
 const BOT_SCOPES = "chat:write,chat:write.public,channels:read";
+const RELAY_PAGE = "https://piran777.github.io/stadup-writer/slack-callback.html";
 
-function getRedirectUri(): string | undefined {
-  const u = process.env.SLACK_REDIRECT_URI?.trim();
-  return u || undefined;
+async function getWebtriggerUrl(): Promise<string | undefined> {
+  try {
+    const url = await webTrigger.getUrl("slack-oauth-callback");
+    if (url) return url;
+  } catch (err: any) {
+    logger.warn("webTrigger.getUrl failed", { phase: "slack-oauth", error: err.message });
+  }
+  return undefined;
 }
 
 function getClientId(): string {
@@ -25,30 +31,37 @@ export async function generateSlackAuthUrl(accountId: string): Promise<string> {
     throw new Error("SLACK_CLIENT_ID not configured");
   }
 
-  const state = `${accountId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-  const redirectUri = getRedirectUri();
+  const callbackUrl = await getWebtriggerUrl();
+  if (!callbackUrl) {
+    throw new Error("Could not resolve webtrigger URL for this installation");
+  }
+
+  const statePayload = {
+    accountId,
+    callbackUrl,
+    ts: Date.now(),
+    nonce: Math.random().toString(36).slice(2),
+  };
+  const stateToken = Buffer.from(JSON.stringify(statePayload)).toString("base64url");
 
   logger.info("Slack OAuth state created", {
     phase: "slack-oauth",
     accountId,
-    hasRedirectUri: !!redirectUri,
-    stateSuffix: state.slice(-8),
+    callbackUrl: callbackUrl.slice(-40),
+    stateSuffix: stateToken.slice(-8),
   });
 
   await kvs.set(
-    `slack-oauth-state:${state}`,
+    `slack-oauth-state:${stateToken}`,
     JSON.stringify({ accountId, expires: Date.now() + 600_000 })
   );
 
   const params = new URLSearchParams({
     client_id: clientId,
     scope: BOT_SCOPES,
-    state,
+    redirect_uri: RELAY_PAGE,
+    state: stateToken,
   });
-
-  if (redirectUri) {
-    params.set("redirect_uri", redirectUri);
-  }
 
   return `${SLACK_AUTHORIZE_URL}?${params.toString()}`;
 }
@@ -70,7 +83,7 @@ export async function exchangeSlackCodeForToken(
       stateSuffix: (state || "").slice(-8),
     });
     throw new Error(
-      "Invalid or expired OAuth state. Check that SLACK_REDIRECT_URI matches this environment's webtrigger URL."
+      "Invalid or expired OAuth state. Please try connecting again."
     );
   }
 
@@ -85,16 +98,13 @@ export async function exchangeSlackCodeForToken(
 
   const clientId = getClientId();
   const clientSecret = getClientSecret();
-  const redirectUri = getRedirectUri();
 
   const tokenBody: Record<string, string> = {
     client_id: clientId,
     client_secret: clientSecret,
     code,
+    redirect_uri: RELAY_PAGE,
   };
-  if (redirectUri) {
-    tokenBody.redirect_uri = redirectUri;
-  }
 
   const response = await api.fetch(SLACK_TOKEN_URL, {
     method: "POST",

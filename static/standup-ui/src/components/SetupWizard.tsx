@@ -32,6 +32,8 @@ function SetupWizard({ onComplete, onSave }: Props) {
   const [step, setStep] = useState(0);
   const [platform, setPlatform] = useState<"slack" | "teams">("slack");
   const [slackConnected, setSlackConnected] = useState(false);
+  const [slackWebhookUrl, setSlackWebhookUrl] = useState("");
+  const [showSlackWebhook, setShowSlackWebhook] = useState(false);
   const [teamsWebhookUrl, setTeamsWebhookUrl] = useState("");
   const [timezone, setTimezone] = useState("America/New_York");
   const [postingHour, setPostingHour] = useState(9);
@@ -57,7 +59,9 @@ function SetupWizard({ onComplete, onSave }: Props) {
   };
 
   const canProceed =
-    platform === "slack" ? slackConnected : !!teamsWebhookUrl;
+    platform === "slack"
+      ? slackConnected || (showSlackWebhook && slackWebhookUrl.startsWith("https://hooks.slack.com/"))
+      : !!teamsWebhookUrl;
 
   const handleFinish = async () => {
     const payload: Record<string, any> = {
@@ -70,6 +74,9 @@ function SetupWizard({ onComplete, onSave }: Props) {
       tone: "professional",
     };
 
+    if (platform === "slack" && showSlackWebhook && slackWebhookUrl) {
+      payload.slackWebhookUrl = slackWebhookUrl;
+    }
     if (platform === "teams") {
       payload.teamsWebhookUrl = teamsWebhookUrl;
     }
@@ -138,8 +145,33 @@ function SetupWizard({ onComplete, onSave }: Props) {
           {platform === "slack" ? (
             <div>
               <SlackConnect
-                onConnectionChange={() => setSlackConnected(true)}
+                onConnectionChange={(connected) => setSlackConnected(connected)}
               />
+              {!slackConnected && (
+                <div style={{ marginTop: 16 }}>
+                  {!showSlackWebhook ? (
+                    <Button
+                      appearance="subtle-link"
+                      onClick={() => setShowSlackWebhook(true)}
+                    >
+                      Having trouble? Use a webhook URL instead
+                    </Button>
+                  ) : (
+                    <div>
+                      <p className="form-hint" style={{ marginBottom: 8 }}>
+                        Paste your Slack Incoming Webhook URL:
+                      </p>
+                      <Textfield
+                        placeholder="https://hooks.slack.com/services/T.../B.../..."
+                        value={slackWebhookUrl}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setSlackWebhookUrl(e.target.value)
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div>
