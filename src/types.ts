@@ -51,6 +51,7 @@ export type UserConfig = {
   teamsWebhookUrl?: string;
   slackBotToken?: string;
   slackChannelId?: string;
+  slackChannelName?: string;
   slackTeamName?: string;
   slackConnected?: boolean;
   timezone: string;

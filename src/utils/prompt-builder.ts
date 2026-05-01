@@ -32,24 +32,28 @@ export function buildPrompt(
 
   const hasGitHub = github && (github.commits.length > 0 || github.pullRequests.length > 0);
 
+  const githubInstruction = hasGitHub
+    ? "Always include code changes. NEVER say 'In GitHub' or 'on GitHub' — just describe the work naturally. If a commit has a ticket key in brackets like [KAN-1], mention both together. If a commit has NO ticket key, give it its own separate bullet — do NOT attach it to an unrelated ticket."
+    : "";
+
   const systemParts = isWeekly
     ? [
         "You are a senior engineer writing a concise weekly progress summary.",
         "Given a full week of Jira ticket activity" + (hasGitHub ? " and code changes" : "") + ", write a clear, brief weekly digest.",
         "Group related work together. Keep each bullet to 1-2 short sentences. State what was done, not why it matters. Do not pad with filler.",
-        "CRITICAL: Only reference ticket keys, commit SHAs, and facts from the provided data. NEVER fabricate or invent details not in the input.",
+        "CRITICAL: Only reference ticket keys, commit SHAs, and facts EXACTLY as provided in the input. NEVER fabricate, invent, or use placeholders like TICKET-KEY.",
         "NOISE REDUCTION: If multiple tickets are part of the same feature, group them into one bullet. Skip trivial items.",
-        hasGitHub ? "Always include code changes. NEVER say 'In GitHub' or 'on GitHub' — just describe the work. When a commit is linked to a Jira ticket (shown with [TICKET-KEY]), combine them. Unlinked commits get their own bullet." : "",
+        githubInstruction,
         "No filler words or unnecessary pleasantries.",
       ]
     : [
         "You are a senior engineer writing a concise standup update.",
         "Given Jira ticket activity" + (hasGitHub ? " and code changes" : "") + ", write a clear, brief standup.",
         "Keep each bullet to 1-2 short sentences max. State what was done, not why it matters. Do not pad with filler like 'improving efficiency' or 'enhancing user experience'.",
-        "CRITICAL: Only reference ticket keys, commit SHAs, and facts from the provided data. NEVER fabricate or invent details not in the input.",
+        "CRITICAL: Only reference ticket keys, commit SHAs, and facts EXACTLY as provided in the input. NEVER fabricate, invent, or use placeholders like TICKET-KEY.",
         "For the *Today:* section, ONLY list tickets that are currently In Progress. If none, say '- Continuing current work'.",
         "NOISE REDUCTION: If multiple tickets are part of the same feature, group them into one bullet. Skip trivial items.",
-        hasGitHub ? "Always include code changes in the output. NEVER say 'In GitHub' or 'on GitHub' — just describe the work. When a commit is linked to a Jira ticket (shown with [TICKET-KEY]), combine them. Unlinked commits get their own bullet." : "",
+        githubInstruction,
         "No filler words or unnecessary pleasantries.",
       ];
 
@@ -96,16 +100,22 @@ export function buildPrompt(
     if (github!.commits.length > 0) {
       activityLines.push("\nCode changes (do not mention 'GitHub' in output — just describe the work):");
       github!.commits.forEach((c) => {
-        const ticket = c.linkedTicket ? ` [${c.linkedTicket}]` : "";
-        activityLines.push(`- ${c.repo} (${c.sha}): "${c.message}"${ticket}`);
+        if (c.linkedTicket) {
+          activityLines.push(`- ${c.repo} (${c.sha}): "${c.message}" [linked to ${c.linkedTicket}]`);
+        } else {
+          activityLines.push(`- ${c.repo} (${c.sha}): "${c.message}" [no ticket]`);
+        }
       });
     }
 
     if (github!.pullRequests.length > 0) {
       activityLines.push("\nPull requests (do not mention 'GitHub' in output — just describe the work):");
       github!.pullRequests.forEach((pr) => {
-        const ticket = pr.linkedTicket ? ` [${pr.linkedTicket}]` : "";
-        activityLines.push(`- ${pr.repo} #${pr.number} (${pr.action}): "${pr.title}"${ticket}`);
+        if (pr.linkedTicket) {
+          activityLines.push(`- ${pr.repo} #${pr.number} (${pr.action}): "${pr.title}" [linked to ${pr.linkedTicket}]`);
+        } else {
+          activityLines.push(`- ${pr.repo} #${pr.number} (${pr.action}): "${pr.title}" [no ticket]`);
+        }
       });
     }
   }

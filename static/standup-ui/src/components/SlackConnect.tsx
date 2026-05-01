@@ -50,8 +50,11 @@ function SlackConnect({ onConnectionChange }: Props) {
 
   useEffect(() => {
     fetchStatus().then((result) => {
-      if (result?.connected && !result.channelId) {
-        fetchChannels();
+      if (result?.connected) {
+        onConnectionChange?.(true);
+        if (!result.channelId) {
+          fetchChannels();
+        }
       }
     });
   }, [fetchStatus]);
@@ -126,11 +129,12 @@ function SlackConnect({ onConnectionChange }: Props) {
     setSavingChannel(true);
     setError(null);
     try {
+      const ch = channels.find((c) => c.id === selectedChannel);
       const result = await invoke<{ ok: boolean; error?: string }>("setSlackChannel", {
         channelId: selectedChannel,
+        channelName: ch?.name || undefined,
       });
       if (result.ok) {
-        const ch = channels.find((c) => c.id === selectedChannel);
         setStatus((prev) =>
           prev ? { ...prev, channelId: selectedChannel, channelName: ch?.name || null } : prev
         );
@@ -165,9 +169,9 @@ function SlackConnect({ onConnectionChange }: Props) {
           </div>
 
           {status.channelId ? (
-            <div style={{ margin: "8px 0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0" }}>
               <span className="channel-tag slack">
-                #{channels.find((c) => c.id === status.channelId)?.name || status.channelId}
+                #{status.channelName || channels.find((c) => c.id === status.channelId)?.name || "channel"}
               </span>
               <Button
                 appearance="subtle"
@@ -223,15 +227,14 @@ function SlackConnect({ onConnectionChange }: Props) {
             </div>
           )}
 
-          <div style={{ marginTop: 12 }}>
-            <Button
-              appearance="subtle"
-              onClick={handleDisconnect}
-              isDisabled={disconnecting}
-            >
-              {disconnecting ? "Disconnecting..." : "Disconnect Slack"}
-            </Button>
-          </div>
+          <Button
+            appearance="subtle-link"
+            onClick={handleDisconnect}
+            isDisabled={disconnecting}
+            spacing="compact"
+          >
+            {disconnecting ? "Disconnecting..." : "Disconnect"}
+          </Button>
         </div>
       ) : (
         <div>

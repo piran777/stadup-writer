@@ -8,6 +8,7 @@ import { postToTeams, isValidTeamsWebhookUrl } from "../services/teams";
 import { UserConfig, StandupRecord, GitHubActivity } from "../types";
 import { truncateSlackMessage } from "../utils/format";
 import { isValidWebhookUrl } from "../utils/validation";
+import { isLastWorkDayOfWeek, getWeeklyLookbackHours } from "../utils/time";
 import { logger } from "../utils/logger";
 
 export async function handleGenerateStandup(req: any) {
@@ -19,11 +20,21 @@ export async function handleGenerateStandup(req: any) {
       | UserConfig
       | undefined;
 
+    const isWeeklyDigest = !!(
+      config?.weeklyDigest &&
+      isLastWorkDayOfWeek(config.timezone || "America/New_York", config.workDays, config.skipWeekends)
+    );
+    const lookbackHours = isWeeklyDigest
+      ? getWeeklyLookbackHours(config!.timezone || "America/New_York", config!.workDays, config!.skipWeekends)
+      : undefined;
+
     const hasGitHub = !!(config?.githubUsername && config?.githubToken);
     logger.info("GitHub config check", {
       phase: "generate",
       accountId,
       hasGitHub,
+      isWeeklyDigest,
+      lookbackHours,
       githubUsername: config?.githubUsername || "none",
       hasToken: !!config?.githubToken,
       orgs: config?.githubOrgs || [],
@@ -31,12 +42,12 @@ export async function handleGenerateStandup(req: any) {
     });
 
     const [activity, githubActivity, displayName] = await Promise.all([
-      fetchUserActivity(accountId, config?.projects),
+      fetchUserActivity(accountId, config?.projects, lookbackHours),
       hasGitHub
         ? fetchGitHubActivity(config!.githubUsername!, config!.githubToken!, {
             orgs: config!.githubOrgs,
             orgOnly: config!.githubOrgOnly,
-          })
+          }, lookbackHours)
         : Promise.resolve<GitHubActivity>({ commits: [], pullRequests: [] }),
       fetchUserDisplayName(accountId),
     ]);
@@ -46,7 +57,7 @@ export async function handleGenerateStandup(req: any) {
       config?.format || "bullets",
       config?.tone || "professional",
       githubActivity,
-      { customPrompt: config?.customPrompt }
+      { isWeeklyDigest, customPrompt: config?.customPrompt }
     );
 
     const fullMessage = truncateSlackMessage(standup);

@@ -30,7 +30,7 @@ export async function handleGetSlackStatus(req: any) {
       connected: true,
       teamName: config.slackTeamName || null,
       channelId: config.slackChannelId || null,
-      channelName: null,
+      channelName: config.slackChannelName || null,
     };
   } catch {
     return { connected: false, teamName: null, channelName: null, channelId: null };
@@ -40,6 +40,7 @@ export async function handleGetSlackStatus(req: any) {
 export async function handleSetSlackChannel(req: any) {
   const accountId: string = req.context.accountId;
   const channelId: string = req.payload?.channelId;
+  const channelName: string | undefined = req.payload?.channelName;
 
   if (!channelId) {
     return { ok: false, error: "No channel selected" };
@@ -51,7 +52,11 @@ export async function handleSetSlackChannel(req: any) {
       return { ok: false, error: "Slack not connected. Please connect first." };
     }
 
-    await kvs.set(`config:${accountId}`, { ...existing, slackChannelId: channelId });
+    const updated: Record<string, any> = { ...existing, slackChannelId: channelId };
+    if (channelName) {
+      updated.slackChannelName = channelName;
+    }
+    await kvs.set(`config:${accountId}`, updated);
     return { ok: true };
   } catch (error: any) {
     return { ok: false, error: error.message };
