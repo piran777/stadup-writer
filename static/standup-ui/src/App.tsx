@@ -54,8 +54,9 @@ function App() {
       const settings = await invoke<UserConfig>("getSettings");
       setConfig(settings);
       const hasSlack = settings.slackWebhookUrl || settings.slackConnected;
+      const hasMessaging = hasSlack || !!settings.teamsWebhookUrl;
       const dismissed = settings.setupDismissed;
-      if (!hasSlack && !settings.teamsWebhookUrl && !dismissed) {
+      if (!hasMessaging && !dismissed) {
         setShowWizard(true);
       }
     } catch (err: any) {
@@ -153,7 +154,11 @@ function App() {
       >
         {activeTab === "preview" && <StandupPreview config={config} />}
         {activeTab === "settings" && config && (
-          <SettingsForm config={config} onSave={handleSaveSettings} />
+          <SettingsForm
+            config={config}
+            onSave={handleSaveSettings}
+            onRestartSetup={() => setShowWizard(true)}
+          />
         )}
         {activeTab === "history" && <StandupHistory />}
       </div>

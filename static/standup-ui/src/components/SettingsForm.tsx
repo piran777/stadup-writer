@@ -29,6 +29,7 @@ type UserConfig = {
 type Props = {
   config: UserConfig;
   onSave: (updates: Partial<UserConfig>) => Promise<void>;
+  onRestartSetup?: () => void;
 };
 
 const TIMEZONES = [
@@ -59,7 +60,7 @@ const DAYS = [
   { day: "Sat", val: 6 },
 ];
 
-function SettingsForm({ config, onSave }: Props) {
+function SettingsForm({ config, onSave, onRestartSetup }: Props) {
   const [form, setForm] = useState<UserConfig>({ ...config });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -326,6 +327,14 @@ function SettingsForm({ config, onSave }: Props) {
           )}
         </div>
       </div>
+
+      {onRestartSetup && (
+        <div style={{ marginTop: 24, borderTop: "1px solid #dfe1e6", paddingTop: 16 }}>
+          <Button appearance="subtle" onClick={onRestartSetup}>
+            Restart Setup Wizard
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

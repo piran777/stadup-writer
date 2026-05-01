@@ -4,6 +4,7 @@ import Textfield from "@atlaskit/textfield";
 import { invoke } from "@forge/bridge";
 import SectionMessage from "@atlaskit/section-message";
 import SlackConnect from "./SlackConnect";
+import GitHubConnect from "./GitHubConnect";
 
 type Props = {
   onComplete: () => void;
@@ -37,6 +38,7 @@ function SetupWizard({ onComplete, onSave }: Props) {
   const [teamsWebhookUrl, setTeamsWebhookUrl] = useState("");
   const [timezone, setTimezone] = useState("America/New_York");
   const [postingHour, setPostingHour] = useState(9);
+  const [githubConnected, setGithubConnected] = useState(false);
   const [testResult, setTestResult] = useState<{
     ok: boolean;
     error?: string;
@@ -86,7 +88,7 @@ function SetupWizard({ onComplete, onSave }: Props) {
   };
 
   const handleSkip = async () => {
-    await onSave({ setupDismissed: true });
+    await onSave({ setupDismissed: true, enabled: false });
     onComplete();
   };
 
@@ -97,13 +99,13 @@ function SetupWizard({ onComplete, onSave }: Props) {
     return `${h - 12}:00 PM`;
   };
 
-  const totalSteps = 3;
+  const totalSteps = 4;
 
   return (
     <div className="wizard-container standup-app">
       <div className="wizard-header">
         <h2>Welcome to Auto Standup Bot</h2>
-        <p>Get set up in 3 quick steps</p>
+        <p>Get set up in a few quick steps</p>
       </div>
 
       <div className="wizard-progress">
@@ -221,22 +223,52 @@ function SetupWizard({ onComplete, onSave }: Props) {
           )}
 
           <div className="wizard-actions">
-            <Button
-              appearance="primary"
-              onClick={() => setStep(1)}
-              isDisabled={!canProceed}
-            >
-              Next
-            </Button>
-            <div style={{ flex: 1 }} />
-            <Button appearance="subtle-link" onClick={handleSkip}>
-              Skip for now
-            </Button>
+            <div />
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button appearance="subtle-link" onClick={() => setStep(1)}>
+                Skip
+              </Button>
+              <Button
+                appearance="primary"
+                onClick={() => setStep(1)}
+                isDisabled={!canProceed}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         </div>
       )}
 
       {step === 1 && (
+        <div className="wizard-step">
+          <h3>Connect GitHub (optional)</h3>
+          <p>
+            Link your GitHub account to include commits and PRs in your standup.
+            You can always do this later from Settings.
+          </p>
+
+          <GitHubConnect
+            onConnectionChange={() => setGithubConnected(true)}
+          />
+
+          <div className="wizard-actions">
+            <Button appearance="subtle" onClick={() => setStep(0)}>
+              Back
+            </Button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button appearance="subtle-link" onClick={() => setStep(2)}>
+                Skip
+              </Button>
+              <Button appearance="primary" onClick={() => setStep(2)}>
+                Next
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
         <div className="wizard-step">
           <h3>Your Timezone</h3>
           <p>We'll use this to post standups at the right time for you.</p>
@@ -252,17 +284,17 @@ function SetupWizard({ onComplete, onSave }: Props) {
             ))}
           </select>
           <div className="wizard-actions">
-            <Button appearance="subtle" onClick={() => setStep(0)}>
+            <Button appearance="subtle" onClick={() => setStep(1)}>
               Back
             </Button>
-            <Button appearance="primary" onClick={() => setStep(2)}>
+            <Button appearance="primary" onClick={() => setStep(3)}>
               Next
             </Button>
           </div>
         </div>
       )}
 
-      {step === 2 && (
+      {step === 3 && (
         <div className="wizard-step">
           <h3>Posting Time</h3>
           <p>
@@ -281,12 +313,17 @@ function SetupWizard({ onComplete, onSave }: Props) {
             ))}
           </select>
           <div className="wizard-actions">
-            <Button appearance="subtle" onClick={() => setStep(1)}>
+            <Button appearance="subtle" onClick={() => setStep(2)}>
               Back
             </Button>
-            <Button appearance="primary" onClick={handleFinish}>
-              Enable Auto Standup
-            </Button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button appearance="subtle-link" onClick={handleSkip}>
+                Skip
+              </Button>
+              <Button appearance="primary" onClick={handleFinish}>
+                Enable Auto Standup
+              </Button>
+            </div>
           </div>
         </div>
       )}
