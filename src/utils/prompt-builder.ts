@@ -34,23 +34,22 @@ export function buildPrompt(
 
   const systemParts = isWeekly
     ? [
-        "You are a detailed senior engineer writing a weekly progress summary.",
-        "Given a full week of Jira ticket activity" + (hasGitHub ? " and GitHub development activity" : "") + ", write a thorough weekly digest.",
-        "Group related work together. Highlight key accomplishments, ongoing work, and blockers.",
-        "Be specific and detailed — explain what was done and why it matters, not just ticket names.",
-        "CRITICAL: Only reference ticket keys, PR numbers, commit details, and facts that appear in the provided activity data. NEVER fabricate or invent ticket keys, PR numbers, or details that are not in the input.",
-        "NOISE REDUCTION: Focus on meaningful progress. Prioritize status transitions and completed work over minor updates. If multiple tickets are part of the same feature or theme, group them into one concise bullet. Skip trivial or repetitive items.",
-        hasGitHub ? "IMPORTANT: Always include GitHub commits and PRs in the output. When a GitHub commit or PR is explicitly marked as linked to a Jira ticket (shown with [TICKET-KEY]), combine them into one bullet. Do NOT assume a commit is related to a ticket unless explicitly linked. Unlinked commits/PRs get their own bullet." : "",
+        "You are a senior engineer writing a concise weekly progress summary.",
+        "Given a full week of Jira ticket activity" + (hasGitHub ? " and code changes" : "") + ", write a clear, brief weekly digest.",
+        "Group related work together. Keep each bullet to 1-2 short sentences. State what was done, not why it matters. Do not pad with filler.",
+        "CRITICAL: Only reference ticket keys, commit SHAs, and facts from the provided data. NEVER fabricate or invent details not in the input.",
+        "NOISE REDUCTION: If multiple tickets are part of the same feature, group them into one bullet. Skip trivial items.",
+        hasGitHub ? "Always include code changes. NEVER say 'In GitHub' or 'on GitHub' — just describe the work. When a commit is linked to a Jira ticket (shown with [TICKET-KEY]), combine them. Unlinked commits get their own bullet." : "",
         "No filler words or unnecessary pleasantries.",
       ]
     : [
-        "You are a detailed senior engineer writing a standup update.",
-        "Given Jira ticket activity" + (hasGitHub ? " and GitHub development activity" : "") + ", write a thorough standup update.",
-        "Be specific and detailed — explain what was done and why it matters, not just ticket names.",
-        "CRITICAL: Only reference ticket keys, PR numbers, commit details, and facts that appear in the provided activity data. NEVER fabricate or invent ticket keys, PR numbers, or details that are not in the input.",
-        "For the *Today:* section, ONLY list tickets that are currently In Progress from the provided data. Do NOT invent or guess future tasks. If there are no in-progress tickets, just say '- Continuing current work'.",
-        "NOISE REDUCTION: Focus on meaningful progress. Prioritize status transitions and completed work over minor updates. If multiple tickets are part of the same feature or theme, group them into one concise bullet. Skip trivial or repetitive items.",
-        hasGitHub ? "IMPORTANT: Always include GitHub commits and PRs in the output. When a GitHub commit or PR is explicitly marked as linked to a Jira ticket (shown with [TICKET-KEY]), combine them into one bullet. Do NOT assume a commit is related to a ticket unless explicitly linked. Unlinked commits/PRs get their own bullet." : "",
+        "You are a senior engineer writing a concise standup update.",
+        "Given Jira ticket activity" + (hasGitHub ? " and code changes" : "") + ", write a clear, brief standup.",
+        "Keep each bullet to 1-2 short sentences max. State what was done, not why it matters. Do not pad with filler like 'improving efficiency' or 'enhancing user experience'.",
+        "CRITICAL: Only reference ticket keys, commit SHAs, and facts from the provided data. NEVER fabricate or invent details not in the input.",
+        "For the *Today:* section, ONLY list tickets that are currently In Progress. If none, say '- Continuing current work'.",
+        "NOISE REDUCTION: If multiple tickets are part of the same feature, group them into one bullet. Skip trivial items.",
+        hasGitHub ? "Always include code changes in the output. NEVER say 'In GitHub' or 'on GitHub' — just describe the work. When a commit is linked to a Jira ticket (shown with [TICKET-KEY]), combine them. Unlinked commits get their own bullet." : "",
         "No filler words or unnecessary pleasantries.",
       ];
 
@@ -95,7 +94,7 @@ export function buildPrompt(
 
   if (hasGitHub) {
     if (github!.commits.length > 0) {
-      activityLines.push("\nGitHub Commits:");
+      activityLines.push("\nCode changes (do not mention 'GitHub' in output — just describe the work):");
       github!.commits.forEach((c) => {
         const ticket = c.linkedTicket ? ` [${c.linkedTicket}]` : "";
         activityLines.push(`- ${c.repo} (${c.sha}): "${c.message}"${ticket}`);
@@ -103,7 +102,7 @@ export function buildPrompt(
     }
 
     if (github!.pullRequests.length > 0) {
-      activityLines.push("\nGitHub Pull Requests:");
+      activityLines.push("\nPull requests (do not mention 'GitHub' in output — just describe the work):");
       github!.pullRequests.forEach((pr) => {
         const ticket = pr.linkedTicket ? ` [${pr.linkedTicket}]` : "";
         activityLines.push(`- ${pr.repo} #${pr.number} (${pr.action}): "${pr.title}"${ticket}`);
@@ -135,16 +134,16 @@ export function buildPrompt(
     outputFormat = format === "prose"
       ? "Output as short paragraphs for Yesterday, Today, and Blockers."
       : [
-          "Output format (include a blank line between each section):",
+          "Output format (include a blank line between each section). Cover every ticket and commit — do not skip any — but describe each in your own words as a meaningful standup update, not a raw data dump:",
           "",
           "*Yesterday:*",
-          "- bullet points",
+          "- Summarize completed work and GitHub commits. Describe what was done and why it matters.",
           "",
           "*Today:*",
-          "- bullet points",
+          "- Summarize in-progress tickets. Describe what you're working on. If none, say 'Continuing current work'.",
           "",
           "*Blockers:*",
-          '- bullet points or "None"',
+          '- Describe any blockers or "None"',
         ].join("\n");
   }
 

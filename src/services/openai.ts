@@ -22,6 +22,13 @@ export async function generateStandup(
 
   const prompt = buildPrompt(activity, format, tone, github, options);
 
+  const { logger } = await import("../utils/logger");
+  logger.info("OpenAI prompt", {
+    phase: "openai",
+    systemLength: prompt.system.length,
+    userPrompt: prompt.user.slice(0, 1000),
+  });
+
   const maxTokens = options?.isWeeklyDigest ? 800 : 500;
 
   try {
