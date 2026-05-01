@@ -1,24 +1,20 @@
-import api from "@forge/api";
+import api, { webTrigger } from "@forge/api";
 import kvs from "@forge/kvs";
 import { logger } from "../utils/logger";
 
 const GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
 const OAUTH_SCOPES = "repo read:user";
+const GITHUB_RELAY_PAGE = "https://piran777.github.io/stadup-writer/github-callback.html";
 
-/**
- * Per-environment OAuth callback. Forge stores OAuth `state` in KVS per environment.
- * If GitHub's redirect hits the *wrong* webtrigger (e.g. dev URL while the user
- * connected from prod Jira), the callback runs in the wrong env and state is missing.
- *
- * Set `GITHUB_REDIRECT_URI` to the webtrigger URL for *this* Forge environment:
- *   forge webtrigger create -e production -f github-oauth-callback
- * Register that exact URL (and dev's, if you use dev) in the GitHub OAuth app
- * — GitHub allows multiple callback URLs, one per line.
- */
-function getRedirectUri(): string | undefined {
-  const u = process.env.GITHUB_REDIRECT_URI?.trim();
-  return u || undefined;
+async function getWebtriggerUrl(): Promise<string | undefined> {
+  try {
+    const url = await webTrigger.getUrl("github-oauth-callback");
+    if (url) return url;
+  } catch (err: any) {
+    logger.warn("webTrigger.getUrl failed for GitHub", { phase: "github-oauth", error: err.message });
+  }
+  return undefined;
 }
 
 function getClientId(): string {
@@ -35,32 +31,37 @@ export async function generateAuthUrl(accountId: string): Promise<string> {
     throw new Error("GITHUB_CLIENT_ID not configured");
   }
 
-  const state = `${accountId}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-  const redirectUri = getRedirectUri();
+  const callbackUrl = await getWebtriggerUrl();
+  if (!callbackUrl) {
+    throw new Error("Could not resolve webtrigger URL for this installation");
+  }
+
+  const statePayload = {
+    accountId,
+    callbackUrl,
+    ts: Date.now(),
+    nonce: Math.random().toString(36).slice(2),
+  };
+  const stateToken = Buffer.from(JSON.stringify(statePayload)).toString("base64url");
 
   logger.info("GitHub OAuth state created", {
     phase: "github-oauth",
     accountId,
-    hasRedirectUri: !!redirectUri,
-    redirectUri,
-    stateSuffix: state.slice(-8),
-    expiresInSeconds: 600,
+    callbackUrl: callbackUrl.slice(-40),
+    stateSuffix: stateToken.slice(-8),
   });
 
   await kvs.set(
-    `github-oauth-state:${state}`,
+    `github-oauth-state:${stateToken}`,
     JSON.stringify({ accountId, expires: Date.now() + 600_000 })
   );
 
   const params = new URLSearchParams({
     client_id: clientId,
     scope: OAUTH_SCOPES,
-    state,
+    redirect_uri: GITHUB_RELAY_PAGE,
+    state: stateToken,
   });
-
-  if (redirectUri) {
-    params.set("redirect_uri", redirectUri);
-  }
 
   return `${GITHUB_AUTHORIZE_URL}?${params.toString()}`;
 }
@@ -73,7 +74,6 @@ export async function exchangeCodeForToken(
     phase: "github-oauth",
     hasCode: !!code,
     stateSuffix: (state || "").slice(-8),
-    redirectUri: getRedirectUri(),
   });
 
   const raw = (await kvs.get(`github-oauth-state:${state}`)) as string | undefined;
@@ -81,10 +81,9 @@ export async function exchangeCodeForToken(
     logger.error("GitHub OAuth state missing in KVS", {
       phase: "github-oauth",
       stateSuffix: (state || "").slice(-8),
-      redirectUri: getRedirectUri(),
     });
     throw new Error(
-      "Invalid or expired OAuth state. Often this means GitHub redirected to the wrong Forge environment: set GITHUB_REDIRECT_URI to this env's webtrigger URL (forge webtrigger create -f github-oauth-callback) and add that URL to your GitHub OAuth app callbacks."
+      "Invalid or expired OAuth state. Please try connecting again."
     );
   }
 
@@ -99,16 +98,13 @@ export async function exchangeCodeForToken(
 
   const clientId = getClientId();
   const clientSecret = getClientSecret();
-  const redirectUri = getRedirectUri();
 
   const tokenBody: Record<string, string> = {
     client_id: clientId,
     client_secret: clientSecret,
     code,
   };
-  if (redirectUri) {
-    tokenBody.redirect_uri = redirectUri;
-  }
+  tokenBody.redirect_uri = GITHUB_RELAY_PAGE;
 
   const response = await api.fetch(GITHUB_TOKEN_URL, {
     method: "POST",

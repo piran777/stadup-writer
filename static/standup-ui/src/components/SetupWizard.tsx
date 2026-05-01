@@ -85,7 +85,8 @@ function SetupWizard({ onComplete, onSave }: Props) {
     onComplete();
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    await onSave({ setupDismissed: true });
     onComplete();
   };
 

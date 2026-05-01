@@ -30,6 +30,7 @@ type UserConfig = {
   githubConnected?: boolean;
   githubOrgs?: string[];
   githubOrgOnly?: boolean;
+  setupDismissed?: boolean;
 };
 
 type TabId = "preview" | "settings" | "history";
@@ -53,7 +54,8 @@ function App() {
       const settings = await invoke<UserConfig>("getSettings");
       setConfig(settings);
       const hasSlack = settings.slackWebhookUrl || settings.slackConnected;
-      if (!hasSlack && !settings.teamsWebhookUrl) {
+      const dismissed = settings.setupDismissed;
+      if (!hasSlack && !settings.teamsWebhookUrl && !dismissed) {
         setShowWizard(true);
       }
     } catch (err: any) {
